@@ -54,7 +54,8 @@ Ansible -> launchd / Tart prerequisites / observability agent
 - `ansible/` host bootstrap and hardening role
 - `deploy/` Kubernetes/Spinnaker examples for the control plane
 - `observability/` Prometheus and Grafana configuration
-- `.github/workflows/` lint, test, and policy checks
+- `.github/workflows/` lint, test, policy, and GHCR release workflows
+- `Dockerfile` multi-stage Linux container for the control plane
 - `docs/` operational runbooks, threat model, and visual architecture mapping
 - `docs/assets/` self-contained documentation graphics
 
@@ -73,6 +74,19 @@ mfm lease release --runner m1-01 --job demo-123 --result success
 ```
 
 Simulation is the default. Real Tart execution is an explicit adapter boundary and should only be enabled on an Apple Silicon host with the required tooling and entitlements.
+
+## Container image
+
+The Docker image packages the **Linux control plane only**. It does not virtualize macOS and does not replace the Apple Silicon Tart host layer.
+
+```bash
+docker build --pull --tag mfm:dev .
+docker run --rm mfm:dev inventory sample
+```
+
+The image uses a multi-stage build, an explicit Python package build backend, a minimal Debian runtime, a non-root UID, bytecode compilation, OCI metadata, and a `.dockerignore`. CI builds and smoke-tests the image on every push and pull request.
+
+Release images are published to GHCR from the GitHub release workflow with version tags and provenance attestations. GitHub's Container Registry supports provenance attestations and recommends associating the package with the repository through the `org.opencontainers.image.source` label. citeturn0search2turn0search5
 
 ## Architecture animation
 
@@ -102,6 +116,8 @@ Performance, cost, reliability, and recovery targets in this project are explici
 Public pull requests are untrusted workloads. The runner broker must not give a pull-request job host credentials, signing keys, persistent developer credentials, or unrestricted access to the management network. Prefer GitHub OIDC or Buildkite-issued short-lived identity for cloud access. Separate build identities from fleet-management identities.
 
 The real deployment should also enforce network egress policy, artifact allowlists, image provenance verification, macOS privacy permissions, audit logging, and secret rotation outside this repository.
+
+The container release workflow grants only `contents: read`, `packages: write`, `attestations: write`, and `id-token: write`, and uses immutable action references. GitHub documents `GITHUB_TOKEN` authentication for GHCR and recommends artifact attestations for container provenance. citeturn0search2
 
 ## Operational targets
 
