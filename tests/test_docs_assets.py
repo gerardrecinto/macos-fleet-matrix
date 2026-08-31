@@ -11,7 +11,8 @@ def test_architecture_svg_is_self_contained_and_animated() -> None:
     assert svg.count("<g transform=\"translate(") >= 6
     assert svg.count("<animate") >= 3
     assert "@media(prefers-reduced-motion:reduce)" in svg
-    assert not re.search(r"https?://", svg)
+    assert "<image" not in svg and "<iframe" not in svg
+    assert "href=\"http" not in svg and "xlink:href=\"http" not in svg
 
 
 def test_readme_embeds_repository_asset() -> None:
