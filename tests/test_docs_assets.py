@@ -1,5 +1,5 @@
-import re
 from pathlib import Path
+import re
 
 
 TITLE = r"<title[^>]*>macOS Fleet Matrix ephemeral runner lifecycle</title>"
