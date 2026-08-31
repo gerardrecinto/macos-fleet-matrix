@@ -1,4 +1,4 @@
-from pathlib import Path
+import pathlib
 import re
 
 
@@ -10,7 +10,7 @@ DESCRIPTION = (
 
 
 def test_architecture_svg_is_self_contained_and_animated() -> None:
-    svg = Path("docs/assets/fleet-lifecycle.svg").read_text(encoding="utf-8")
+    svg = pathlib.Path("docs/assets/fleet-lifecycle.svg").read_text(encoding="utf-8")
     assert svg.startswith("<svg")
     assert 'viewBox="0 0 1200 620"' in svg
     assert re.search(TITLE, svg)
@@ -23,5 +23,5 @@ def test_architecture_svg_is_self_contained_and_animated() -> None:
 
 
 def test_readme_embeds_repository_asset() -> None:
-    readme = Path("README.md").read_text(encoding="utf-8")
+    readme = pathlib.Path("README.md").read_text(encoding="utf-8")
     assert "docs/assets/fleet-lifecycle.svg" in readme
