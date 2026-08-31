@@ -1,0 +1,25 @@
+- name: Configure macOS fleet host
+  hosts: macos_hosts
+  become: true
+  tasks:
+    - name: Assert Apple Silicon host
+      ansible.builtin.command: /usr/bin/arch
+      register: arch_result
+      changed_when: false
+      failed_when: arch_result.stdout.strip() not in ['arm64']
+
+    - name: Install fleet host directories
+      ansible.builtin.file:
+        path: /usr/local/macos-fleet-matrix
+        state: directory
+        owner: root
+        group: wheel
+        mode: '0755'
+
+    - name: Install host policy marker
+      ansible.builtin.copy:
+        dest: /usr/local/macos-fleet-matrix/policy-version
+        content: 'v1\n'
+        owner: root
+        group: wheel
+        mode: '0644'
