@@ -2,6 +2,12 @@
 
 A production-oriented reference architecture for ephemeral Apple Silicon macOS CI runners using Tart, Packer, Ansible, GitHub Actions, Buildkite, Spinnaker, Prometheus, OpenTelemetry, and Grafana.
 
+<p align="center">
+  <img src="docs/assets/fleet-lifecycle.svg" alt="Animated macOS Fleet Matrix runner lifecycle" width="100%">
+</p>
+
+<p align="center"><strong>QUEUE → LEASE → BOOT → BUILD → TEARDOWN → RECOVER</strong></p>
+
 ## Why this exists
 
 macOS CI capacity is expensive and stateful by default. This project treats each runner as disposable infrastructure:
@@ -49,7 +55,8 @@ Ansible -> launchd / Tart prerequisites / observability agent
 - `deploy/` Kubernetes/Spinnaker examples for the control plane
 - `observability/` Prometheus and Grafana configuration
 - `.github/workflows/` lint, test, and policy checks
-- `docs/` operational runbooks and threat model
+- `docs/` operational runbooks, threat model, and visual architecture mapping
+- `docs/assets/` self-contained documentation graphics
 
 ## Quick start
 
@@ -66,6 +73,12 @@ mfm lease release --runner m1-01 --job demo-123 --result success
 ```
 
 Simulation is the default. Real Tart execution is an explicit adapter boundary and should only be enabled on an Apple Silicon host with the required tooling and entitlements.
+
+## Architecture animation
+
+The hero SVG is part of the repository and is tested in CI. It maps the visual states directly to control-plane lifecycle states rather than presenting an unrelated decorative diagram. It also includes a reduced-motion mode for accessibility.
+
+See [`docs/ARCHITECTURE-ANIMATION.md`](docs/ARCHITECTURE-ANIMATION.md) for the state-by-state mapping.
 
 ## Design principles
 

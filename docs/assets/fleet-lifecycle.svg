@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+<title id="title">macOS Fleet Matrix ephemeral runner lifecycle</title>
+<desc id="desc">Animated lifecycle from queue through lease, boot, build, teardown and recovery.</desc>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif}
+.label{font-size:18px;fill:#aab7c7;letter-spacing:1.5px}.stage{font-size:15px;fill:#eaf0f7;font-weight:600;letter-spacing:1px}.small{font-size:16px;fill:#9fb0c3}
+@media(prefers-reduced-motion:reduce){.pulse,.flow{animation:none!important}}
+</style>
+<rect width="1200" height="620" rx="24" fill="#0a0e14"/>
+<text x="60" y="62" font-size="36" fill="#f4f7fb" font-weight="700">macOS FLEET MATRIX</text>
+<text x="62" y="96" class="label">EPHEMERAL APPLE SILICON BUILD + TEST FABRIC</text>
+<g transform="translate(80 185)">
+<line x1="45" y1="0" x2="995" y2="0" stroke="#334052" stroke-width="6"/>
+<g class="flow" stroke="#6fd6ff" stroke-width="8" stroke-linecap="round" stroke-dasharray="12 28"><line x1="45" y1="0" x2="995" y2="0"><animate attributeName="stroke-dashoffset" from="0" to="-80" dur="1s" repeatCount="indefinite"/></line></g>
+<g transform="translate(45 0)"><circle r="38" fill="#182230" stroke="#52657c" stroke-width="2"/><circle class="pulse" r="38" fill="none" stroke="#6fd6ff" stroke-width="3" opacity="0"><animate attributeName="r" values="38;52;38" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;.75;0" dur="2s" repeatCount="indefinite"/></circle><text y="6" text-anchor="middle" font-size="22" fill="#f4f7fb">1</text><text y="78" text-anchor="middle" class="stage">QUEUE</text></g>
+<g transform="translate(235 0)"><circle r="38" fill="#182230" stroke="#52657c" stroke-width="2"/><text y="6" text-anchor="middle" font-size="22" fill="#f4f7fb">2</text><text y="78" text-anchor="middle" class="stage">LEASE</text></g>
+<g transform="translate(425 0)"><circle r="38" fill="#182230" stroke="#52657c" stroke-width="2"/><text y="6" text-anchor="middle" font-size="22" fill="#f4f7fb">3</text><text y="78" text-anchor="middle" class="stage">BOOT</text></g>
+<g transform="translate(615 0)"><circle r="38" fill="#182230" stroke="#52657c" stroke-width="2"/><text y="6" text-anchor="middle" font-size="22" fill="#f4f7fb">4</text><text y="78" text-anchor="middle" class="stage">BUILD</text></g>
+<g transform="translate(805 0)"><circle r="38" fill="#182230" stroke="#52657c" stroke-width="2"/><text y="6" text-anchor="middle" font-size="22" fill="#f4f7fb">5</text><text y="78" text-anchor="middle" class="stage">TEARDOWN</text></g>
+<g transform="translate(995 0)"><circle r="38" fill="#182230" stroke="#52657c" stroke-width="2"/><text y="6" text-anchor="middle" font-size="22" fill="#f4f7fb">6</text><text y="78" text-anchor="middle" class="stage">RECOVER</text></g>
+</g>
+<g transform="translate(70 310)"><rect width="1060" height="220" rx="20" fill="#121923" stroke="#334052"/><text x="30" y="46" font-size="24" fill="#f4f7fb" font-weight="700">RUNNER / m1-07</text><text x="30" y="78" class="small">arm64  •  macOS 15  •  Xcode 16  •  one job per VM</text><rect x="810" y="28" width="210" height="54" rx="12" fill="#1c3340"/><text x="915" y="62" text-anchor="middle" font-size="16" fill="#76dcff" font-weight="600">EPHEMERAL</text><text x="30" y="128" class="small">lease latency</text><text x="190" y="128" font-size="20" fill="#70d9b0">18s</text><text x="330" y="128" class="small">clean state</text><text x="475" y="128" font-size="20" fill="#70d9b0">1 job / VM</text><text x="700" y="128" class="small">health</text><text x="790" y="128" font-size="20" fill="#70d9b0">PASS</text><line x1="30" y1="155" x2="1030" y2="155" stroke="#293646"/><text x="30" y="190" class="small">IMAGE</text><text x="115" y="190" font-size="17" fill="#dbe5ef">sha256:7e1c...  →  canary gate  →  previous digest on failure</text></g>
+</svg>
