@@ -22,6 +22,16 @@ macOS CI capacity is expensive and stateful by default. This project treats each
 
 The repository is intentionally useful on a laptop in simulation mode while preserving clear seams for a real Apple Silicon fleet.
 
+## Current capabilities
+
+What exists in this repository today, versus what the architecture below is designed to grow into:
+
+- **Control-plane CLI (Python, `src/mfm/`)** — an in-memory inventory and lease model (`mfm inventory sample`, `mfm lease acquire`, `mfm lease release`). Runs in simulation mode only; there is no adapter that boots a real Tart VM yet.
+- **Host telemetry probe (Swift, `src/mfm/Telemetry/`)** — reads live thermal state and memory/swap pressure straight from the Mach host port and BSD sysctl tree. See [Host telemetry probe](#host-telemetry-probe-swift) below. It reports host health; it is not yet wired into the scheduler.
+- **Docs and CI** — the architecture animation, threat model, and operations runbook are real documents, tested and lint-checked on every push. The container release workflow publishes the Linux control-plane image to GHCR.
+
+Everything else in the architecture diagram — image baking, Spinnaker promotion, the Ansible host role, Kubernetes deployment manifests — is a documented design, not yet exercised end-to-end by CI.
+
 ## Architecture
 
 ```text
@@ -50,6 +60,9 @@ Ansible -> launchd / Tart prerequisites / observability agent
 ## Repository layout
 
 - `src/mfm/` small Python control-plane library and CLI
+- `src/mfm/Telemetry/` Swift host telemetry probe (thermal state, memory/swap)
+- `tests/mfmTests/` XCTest suite for the telemetry probe (alongside the existing pytest suite — macOS's default case-insensitive filesystem treats `Tests/` and `tests/` as the same directory, so both live under the lowercase name)
+- `Package.swift` Swift package manifest for the telemetry module
 - `packer/` image-build contract and validation scripts
 - `ansible/` host bootstrap and hardening role
 - `deploy/` Kubernetes/Spinnaker examples for the control plane
@@ -74,6 +87,19 @@ mfm lease release --runner m1-01 --job demo-123 --result success
 ```
 
 Simulation is the default. Real Tart execution is an explicit adapter boundary and should only be enabled on an Apple Silicon host with the required tooling and entitlements.
+
+## Host telemetry probe (Swift)
+
+Requires macOS 13+ on Apple Silicon and Swift 5.9+.
+
+```bash
+swift build
+swift test
+```
+
+`HostTelemetryProbe.sample()` returns a `HostHealthState`: thermal state from `ProcessInfo.thermalState`, and memory/swap pressure read via `host_statistics64(HOST_VM_INFO64)` and `sysctlbyname("vm.swapusage")` — the same kernel counters `vm_stat` and Activity Monitor read, without forking a process and parsing its text output. The struct is `Codable`; `HostHealthState.jsonData()` gives a stable, ISO 8601-timestamped JSON snapshot.
+
+This is a standalone probe today. It is not yet called by the scheduler, exported as Prometheus metrics, or used to gate lease acquisition — see [Roadmap](#roadmap).
 
 ## Container image
 
@@ -130,6 +156,17 @@ These are targets for validation, not historical claims:
 | Image promotion | gated by canary health | promotion events |
 | Stale runner rate | < 0.1% | unhealthy leases / total leases |
 | Fleet recovery | automated | time-to-replenish |
+
+## Roadmap
+
+Not yet implemented — listed here so the architecture diagram above isn't mistaken for shipped functionality:
+
+- **Virtualization.framework VM lifecycle** — no code boots, leases, or tears down a real VM. `mfm lease acquire` records state in memory only.
+- **APFS copy-on-write image cloning** — the "immutable pool" step in the image pipeline is a documented contract in `packer/`, not exercised by any script.
+- **Xcode/Simulator toolchain matrix switching** — no code touches `xcode-select` or CoreSimulator runtime state.
+- **Telemetry-gated scheduling** — the host telemetry probe reports thermal/memory state but nothing yet reads it before assigning a job.
+- **Prometheus/OpenTelemetry export** — `observability/prometheus.yml` is a scrape config target, not a running exporter.
+- **Tart, Spinnaker, and Ansible integration** — documented in `deploy/` and `ansible/`, not yet driven by CI.
 
 ## License
 
