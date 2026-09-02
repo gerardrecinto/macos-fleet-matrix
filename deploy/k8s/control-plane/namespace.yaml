@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mfm-control-plane
+  labels:
+    app.kubernetes.io/name: macos-fleet-matrix
+    app.kubernetes.io/part-of: macos-fleet-matrix

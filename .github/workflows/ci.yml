@@ -45,7 +45,7 @@ jobs:
         provider: [aws, gcp, azure, openstack, alicloud]
     defaults:
       run:
-        working-directory: terraform/control-plane/${{ matrix.provider }}
+        working-directory: terraform/control-plane/modules/${{ matrix.provider }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
@@ -55,10 +55,58 @@ jobs:
       - run: terraform init -backend=false -input=false
       - run: terraform validate
 
+  terragrunt:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        provider: [aws, gcp, azure, openstack, alicloud]
+    defaults:
+      run:
+        working-directory: terraform/control-plane/live/${{ matrix.provider }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_wrapper: false
+      - name: Install Terragrunt
+        run: |
+          curl -sL -o /usr/local/bin/terragrunt \
+            https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.4/terragrunt_linux_amd64
+          chmod +x /usr/local/bin/terragrunt
+      - run: terragrunt validate
+
+  k8s-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d
+        with:
+          version: v1.31.0
+      - name: Install kubeconform
+        run: |
+          curl -sL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz | tar xz kubeconform
+          sudo mv kubeconform /usr/local/bin/kubeconform
+      - name: Validate control-plane Kubernetes manifests
+        run: kubectl kustomize deploy/k8s/control-plane | kubeconform -strict -summary
+      - name: Validate ArgoCD Application manifest
+        run: |
+          kubeconform -strict -summary \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            deploy/argocd/application.yaml
+
   policy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Install Terragrunt
+        run: |
+          curl -sL -o /usr/local/bin/terragrunt \
+            https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.4/terragrunt_linux_amd64
+          chmod +x /usr/local/bin/terragrunt
+      - name: Check Terragrunt HCL formatting
+        working-directory: terraform/control-plane
+        run: terragrunt hcl format --check
       - name: Reject obvious credential material
         run: |
           if grep -RniE 'AKIA[0-9A-Z]{16}|-----BEGIN (RSA|EC|OPENSSH) PRIVATE KEY-----' --exclude-dir=.git .; then

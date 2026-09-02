@@ -29,10 +29,11 @@ What exists in this repository today, versus what the architecture below is desi
 - **Control-plane CLI (Python, `src/mfm/`)** — an in-memory inventory and lease model (`mfm inventory sample`, `mfm lease acquire`, `mfm lease release`). Runs in simulation mode only; there is no adapter that boots a real Tart VM yet.
 - **Host telemetry probe (Swift, `src/mfm/Telemetry/`)** — reads live thermal state and memory/swap pressure straight from the Mach host port and BSD sysctl tree. See [Host telemetry probe](#host-telemetry-probe-swift) below. It reports host health; it is not yet wired into the scheduler.
 - **Lease reaper (Rust, `src/mfm/Reaper/`)** — enforces the "fail closed" rule against an inventory snapshot: any leased runner past its `lease_expires_at` is quarantined. See [Lease reaper](#lease-reaper-rust) below. It operates on the same JSON shape the Python CLI emits; nothing yet pipes live inventory into it on a schedule.
-- **Multi-cloud control-plane infrastructure (Terraform, `terraform/control-plane/`)** — one Terraform root module per provider (AWS, GCP, Azure, OpenStack, AliCloud) that stands up a single host running the published control-plane container. `terraform validate` and `terraform fmt -check` run for all five in CI; none have been applied against a live account from this repository. See [`terraform/control-plane/README.md`](terraform/control-plane/README.md) for scope.
+- **Multi-cloud control-plane infrastructure (Terraform + Terragrunt, `terraform/control-plane/`)** — one reusable Terraform module per provider (AWS, GCP, Azure, OpenStack, AliCloud) under `modules/`, each orchestrated by a Terragrunt stack under `live/` that stands up a single host running the published control-plane container. `terraform validate`/`fmt` run against every module and `terragrunt validate` runs against every live stack in CI; none have been applied against a live account from this repository. See [`terraform/control-plane/README.md`](terraform/control-plane/README.md) for the module/live split and scope.
+- **Continuous deployment (ArgoCD, `deploy/argocd/`, `deploy/k8s/control-plane/`)** — a real ArgoCD `Application` manifest and a Kustomize-built CronJob that runs the published control-plane image's smoke check on a schedule, the Kubernetes-native equivalent of what the cloud-init templates above do on a VM. Validated with `kubeconform` in CI. See [`deploy/argocd/README.md`](deploy/argocd/README.md) for scope — no live cluster is synced from this repository.
 - **Docs and CI** — the architecture animation, threat model, and operations runbook are real documents, tested and lint-checked on every push. The container release workflow publishes the Linux control-plane image to GHCR.
 
-Everything else in the architecture diagram — image baking, Spinnaker promotion, the Ansible host role, Kubernetes deployment manifests — is a documented design, not yet exercised end-to-end by CI.
+Everything else in the architecture diagram — image baking, Spinnaker promotion, the Ansible host role — is a documented design, not yet exercised end-to-end by CI. The Kubernetes/ArgoCD manifests are the exception: they're schema-validated in CI (see above), just never applied to a live cluster.
 
 ## Architecture
 
@@ -68,8 +69,11 @@ Ansible -> launchd / Tart prerequisites / observability agent
 - `Package.swift` Swift package manifest for the telemetry module
 - `packer/` image-build contract and validation scripts
 - `ansible/` host bootstrap and hardening role
-- `deploy/` Kubernetes/Spinnaker examples for the control plane
-- `terraform/control-plane/` per-provider Terraform for the Linux control-plane host (AWS, GCP, Azure, OpenStack, AliCloud)
+- `deploy/SPINNAKER.md` promotion contract for the macOS/Xcode image pipeline (a different tier — see `terraform/variables.tf` and `packer/`)
+- `terraform/control-plane/modules/` reusable per-provider Terraform modules for the Linux control-plane host (AWS, GCP, Azure, OpenStack, AliCloud)
+- `terraform/control-plane/live/` Terragrunt stacks that call those modules, one per provider
+- `deploy/k8s/control-plane/` Kustomize manifests for the control-plane CronJob
+- `deploy/argocd/` ArgoCD `Application` manifest for continuous deployment of those manifests
 - `observability/` Prometheus and Grafana configuration
 - `.github/workflows/` lint, test, policy, and GHCR release workflows
 - `Dockerfile` multi-stage Linux container for the control plane
@@ -182,9 +186,10 @@ Not yet implemented — listed here so the architecture diagram above isn't mist
 - **Xcode/Simulator toolchain matrix switching** — no code touches `xcode-select` or CoreSimulator runtime state.
 - **Telemetry-gated scheduling** — the host telemetry probe reports thermal/memory state but nothing yet reads it before assigning a job.
 - **Prometheus/OpenTelemetry export** — `observability/prometheus.yml` is a scrape config target, not a running exporter.
-- **Tart, Spinnaker, and Ansible integration** — documented in `deploy/` and `ansible/`, not yet driven by CI.
+- **Tart, Spinnaker (image promotion), and Ansible integration** — documented in `deploy/SPINNAKER.md` and `ansible/`, not yet driven by CI. This is separate from the ArgoCD/Kubernetes manifests below, which are validated in CI.
 - **Scheduled reaping** — `mfm-reaper` is a correct, tested binary but nothing invokes it on a timer; there is no cron/systemd-timer/CronJob wiring it into a running fleet yet.
-- **Live multi-cloud deployment** — the Terraform in `terraform/control-plane/` is validated in CI but has never been applied against a real AWS, GCP, Azure, OpenStack, or AliCloud account; there is no state backend or CI job authorized to run `terraform apply`.
+- **Live multi-cloud deployment** — the Terraform in `terraform/control-plane/` is validated in CI but has never been applied against a real AWS, GCP, Azure, OpenStack, or AliCloud account; there is no remote state backend or CI job authorized to run `terraform apply` or `terragrunt run --all apply`.
+- **Live ArgoCD sync** — `deploy/argocd/application.yaml` is a real, validated manifest, but it has never been applied to a cluster from this repository; there is no cluster endpoint or credential here to sync against.
 
 ## License
 

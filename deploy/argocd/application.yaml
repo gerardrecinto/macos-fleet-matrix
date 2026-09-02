@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mfm-control-plane
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: macos-fleet-matrix
+    app.kubernetes.io/part-of: macos-fleet-matrix
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/gerardrecinto/macos-fleet-matrix.git
+    targetRevision: main
+    path: deploy/k8s/control-plane
+
+  destination:
+    # Replace with a real cluster/namespace before syncing. "in-cluster" is
+    # ArgoCD's own placeholder for "wherever ArgoCD itself runs" — it is not
+    # a claim that this repository has ever been synced anywhere.
+    server: https://kubernetes.default.svc
+    namespace: mfm-control-plane
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false # namespace.yaml in the manifest set already creates it
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
