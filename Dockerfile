@@ -14,8 +14,9 @@ WORKDIR /build
 COPY pyproject.toml ./
 COPY src ./src
 
-RUN python -m pip install --upgrade pip \
-    && python -m pip wheel --no-deps --wheel-dir /dist .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --upgrade pip \
+    && PIP_NO_CACHE_DIR=0 python -m pip wheel --no-deps --wheel-dir /dist .
 
 FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime
 
@@ -38,7 +39,7 @@ RUN groupadd --system --gid 10001 mfm \
 COPY --from=builder /dist/*.whl /tmp/
 RUN python -m pip install /tmp/*.whl \
     && rm -f /tmp/*.whl \
-    && python -m compileall -q /usr/local/lib/python3.12/site-packages/mfm
+    && python -m compileall -q "$(python -c 'import site; print(site.getsitepackages()[0])')/mfm"
 
 USER 10001:10001
 
