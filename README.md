@@ -28,6 +28,8 @@ What exists in this repository today, versus what the architecture below is desi
 
 - **Control-plane CLI (Python, `src/mfm/`)** — an in-memory inventory and lease model (`mfm inventory sample`, `mfm lease acquire`, `mfm lease release`). Runs in simulation mode only; there is no adapter that boots a real Tart VM yet.
 - **Host telemetry probe (Swift, `src/mfm/Telemetry/`)** — reads live thermal state and memory/swap pressure straight from the Mach host port and BSD sysctl tree. See [Host telemetry probe](#host-telemetry-probe-swift) below. It reports host health; it is not yet wired into the scheduler.
+- **Lease reaper (Rust, `src/mfm/Reaper/`)** — enforces the "fail closed" rule against an inventory snapshot: any leased runner past its `lease_expires_at` is quarantined. See [Lease reaper](#lease-reaper-rust) below. It operates on the same JSON shape the Python CLI emits; nothing yet pipes live inventory into it on a schedule.
+- **Multi-cloud control-plane infrastructure (Terraform, `terraform/control-plane/`)** — one Terraform root module per provider (AWS, GCP, Azure, OpenStack, AliCloud) that stands up a single host running the published control-plane container. `terraform validate` and `terraform fmt -check` run for all five in CI; none have been applied against a live account from this repository. See [`terraform/control-plane/README.md`](terraform/control-plane/README.md) for scope.
 - **Docs and CI** — the architecture animation, threat model, and operations runbook are real documents, tested and lint-checked on every push. The container release workflow publishes the Linux control-plane image to GHCR.
 
 Everything else in the architecture diagram — image baking, Spinnaker promotion, the Ansible host role, Kubernetes deployment manifests — is a documented design, not yet exercised end-to-end by CI.
@@ -61,11 +63,13 @@ Ansible -> launchd / Tart prerequisites / observability agent
 
 - `src/mfm/` small Python control-plane library and CLI
 - `src/mfm/Telemetry/` Swift host telemetry probe (thermal state, memory/swap)
+- `src/mfm/Reaper/` Rust lease reaper (fail-closed lease TTL enforcement)
 - `tests/mfmTests/` XCTest suite for the telemetry probe (alongside the existing pytest suite — macOS's default case-insensitive filesystem treats `Tests/` and `tests/` as the same directory, so both live under the lowercase name)
 - `Package.swift` Swift package manifest for the telemetry module
 - `packer/` image-build contract and validation scripts
 - `ansible/` host bootstrap and hardening role
 - `deploy/` Kubernetes/Spinnaker examples for the control plane
+- `terraform/control-plane/` per-provider Terraform for the Linux control-plane host (AWS, GCP, Azure, OpenStack, AliCloud)
 - `observability/` Prometheus and Grafana configuration
 - `.github/workflows/` lint, test, policy, and GHCR release workflows
 - `Dockerfile` multi-stage Linux container for the control plane
@@ -87,6 +91,18 @@ mfm lease release --runner m1-01 --job demo-123 --result success
 ```
 
 Simulation is the default. Real Tart execution is an explicit adapter boundary and should only be enabled on an Apple Silicon host with the required tooling and entitlements.
+
+## Lease reaper (Rust)
+
+Requires Rust 1.75+ (stable channel).
+
+```bash
+cd src/mfm/Reaper
+cargo test
+mfm inventory sample | cargo run --quiet
+```
+
+`mfm-reaper` reads a fleet inventory snapshot as JSON — the same shape `mfm inventory` prints — and applies one rule: a runner in the `leased` state whose `lease_expires_at` is at or before the current time is quarantined, its job and lease fields cleared. Every other state passes through unchanged. This is the "fail closed" design principle from below expressed as a small, independently testable unit, in a second language on purpose: the Python model owns the state machine, the Rust binary only enforces one invariant against a snapshot of it. It is not yet wired into a scheduler loop — running it today means piping a snapshot into it by hand or from a script.
 
 ## Host telemetry probe (Swift)
 
@@ -167,6 +183,8 @@ Not yet implemented — listed here so the architecture diagram above isn't mist
 - **Telemetry-gated scheduling** — the host telemetry probe reports thermal/memory state but nothing yet reads it before assigning a job.
 - **Prometheus/OpenTelemetry export** — `observability/prometheus.yml` is a scrape config target, not a running exporter.
 - **Tart, Spinnaker, and Ansible integration** — documented in `deploy/` and `ansible/`, not yet driven by CI.
+- **Scheduled reaping** — `mfm-reaper` is a correct, tested binary but nothing invokes it on a timer; there is no cron/systemd-timer/CronJob wiring it into a running fleet yet.
+- **Live multi-cloud deployment** — the Terraform in `terraform/control-plane/` is validated in CI but has never been applied against a real AWS, GCP, Azure, OpenStack, or AliCloud account; there is no state backend or CI job authorized to run `terraform apply`.
 
 ## License
 

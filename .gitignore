@@ -2,3 +2,10 @@
 __pycache__/
 *.pyc
 .venv/
+*.egg-info/
+target/
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
