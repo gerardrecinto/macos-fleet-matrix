@@ -41,7 +41,7 @@ jobs:
 
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@359e915ab3220d88514ed693793a5cc795192aa6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
