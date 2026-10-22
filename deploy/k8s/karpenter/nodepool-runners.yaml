@@ -1,0 +1,50 @@
+# Capacity for container CI jobs and runner pods. Nodes appear when pods are
+# pending and are removed when they are empty, which matches the one-job,
+# destroy-after lease model: no idle fleet to pay for between builds.
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: runners
+spec:
+  template:
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: runners
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        # Spot first, on-demand when spot has no capacity. A job that is
+        # interrupted is retried by its Job controller, so spot is safe here.
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]
+        # Several families, not one: a wide choice gives the spot allocator
+        # more pools to pick from, which lowers interruption risk.
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["c", "m", "r"]
+        - key: karpenter.k8s.aws/instance-generation
+          operator: Gt
+          values: ["4"]
+      # Replace nodes after a day so no runner node lives long enough to
+      # accumulate state from untrusted job code.
+      expireAfter: 24h
+  disruption:
+    # Pods that carry the annotation karpenter.sh/do-not-disrupt: "true" (set
+    # it on a runner pod while it holds a lease) block consolidation of their
+    # node until they finish.
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 1m
+    budgets:
+      - nodes: "20%"
+  # A hard ceiling. A bug that creates pods in a loop stops here, not at the
+  # account limit.
+  limits:
+    cpu: "128"
+    memory: 512Gi

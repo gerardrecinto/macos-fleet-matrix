@@ -1,0 +1,8 @@
+misconfigurations:
+  # The community EKS module hard-codes an all-egress rule on the node security
+  # group. Nodes need outbound HTTPS to pull images and reach AWS APIs, and the
+  # API server is private. Narrowing it means forking the module or adding VPC
+  # endpoints for every dependency; revisit when the cluster is built for real.
+  - id: AWS-0104
+    paths:
+      - "terraform-aws-modules/eks/aws/node_groups.tf"

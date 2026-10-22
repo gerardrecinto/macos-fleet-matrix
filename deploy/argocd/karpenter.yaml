@@ -1,0 +1,82 @@
+# Two Applications on the EKS cluster: the Karpenter controller (Helm chart
+# from the public ECR OCI registry), then the NodePool and EC2NodeClass that
+# configure it. The controller's IAM role and interruption queue come from
+# terraform/kubernetes/modules/eks.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: karpenter
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: karpenter
+    app.kubernetes.io/part-of: macos-fleet-matrix
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: public.ecr.aws/karpenter
+    chart: karpenter
+    targetRevision: 1.3.3
+    helm:
+      valuesObject:
+        settings:
+          clusterName: mfm-workloads
+          # Output karpenter_queue_name from terraform/kubernetes/modules/eks.
+          interruptionQueue: mfm-workloads
+        controller:
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: karpenter-nodepools
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: karpenter
+    app.kubernetes.io/part-of: macos-fleet-matrix
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/gerardrecinto/macos-fleet-matrix.git
+    targetRevision: main
+    path: deploy/k8s/karpenter
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

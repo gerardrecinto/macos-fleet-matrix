@@ -1,0 +1,33 @@
+# How Karpenter builds a node for the runner pool: image, subnets, security
+# groups, role and disk. The subnet and security group selectors match the
+# karpenter.sh/discovery tag that terraform/kubernetes/modules/eks writes, and
+# the role is the fixed node role name from the same module. Both use the
+# default cluster_name, mfm-workloads; change them together if you rename it.
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: runners
+spec:
+  # al2023@latest follows the newest EKS-optimised AL2023 image. Pin a version
+  # before relying on this in production so a new image does not roll nodes at
+  # a time you did not choose.
+  amiSelectorTerms:
+    - alias: al2023@latest
+  role: mfm-workloads-karpenter-node
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: mfm-workloads
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: mfm-workloads
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 50Gi
+        volumeType: gp3
+        encrypted: true
+  # IMDSv2 only, one hop: a container on the node cannot reach the node's
+  # instance credentials.
+  metadataOptions:
+    httpTokens: required
+    httpPutResponseHopLimit: 1

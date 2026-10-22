@@ -86,7 +86,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        platform: [ack, openshift]
+        platform: [ack, openshift, eks]
     defaults:
       run:
         working-directory: terraform/kubernetes/modules/${{ matrix.platform }}
@@ -103,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        platform: [ack, openshift]
+        platform: [ack, openshift, eks]
     defaults:
       run:
         working-directory: terraform/kubernetes/live/${{ matrix.platform }}
@@ -131,6 +131,7 @@ jobs:
         with:
           scan-type: config
           scan-ref: ${{ matrix.path }}
+          trivyignores: .trivyignore.yaml
           severity: HIGH,CRITICAL
           exit-code: '1'
 
@@ -168,6 +169,11 @@ jobs:
           sudo mv kubeconform /usr/local/bin/kubeconform
       - name: Validate control-plane Kubernetes manifests
         run: kubectl kustomize deploy/k8s/control-plane | kubeconform -strict -summary
+      - name: Validate Karpenter manifests
+        run: |
+          kubectl kustomize deploy/k8s/karpenter | kubeconform -strict -summary \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
       - name: Validate OpenShift overlay
         run: kubectl kustomize deploy/k8s/overlays/openshift | kubeconform -strict -summary
       - name: Validate Kyverno policies
@@ -182,7 +188,7 @@ jobs:
           kubeconform -strict -summary \
             -schema-location default \
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
-            deploy/argocd/application.yaml
+            deploy/argocd/application.yaml deploy/argocd/karpenter.yaml
 
   policy:
     runs-on: ubuntu-latest

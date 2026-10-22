@@ -16,7 +16,7 @@ terraform-validate:
 	for provider in aws gcp azure openstack alicloud; do \
 		(cd terraform/control-plane/modules/$$provider && terraform init -backend=false -input=false && terraform validate) || exit 1; \
 	done
-	for platform in ack openshift; do \
+	for platform in ack openshift eks; do \
 		(cd terraform/kubernetes/modules/$$platform && terraform init -backend=false -input=false && terraform validate) || exit 1; \
 	done
 
@@ -26,7 +26,7 @@ terragrunt-validate:
 		(cd terraform/control-plane/live/$$provider && terragrunt validate) || exit 1; \
 	done
 	cd terraform/kubernetes && terragrunt hcl format --check
-	for platform in ack openshift; do \
+	for platform in ack openshift eks; do \
 		(cd terraform/kubernetes/live/$$platform && terragrunt validate) || exit 1; \
 	done
 
@@ -35,8 +35,11 @@ k8s-validate:
 	kubeconform -strict -summary \
 		-schema-location default \
 		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
-		deploy/argocd/application.yaml
+		deploy/argocd/application.yaml deploy/argocd/karpenter.yaml
 	kubectl kustomize deploy/k8s/overlays/openshift | kubeconform -strict -summary
+	kubectl kustomize deploy/k8s/karpenter | kubeconform -strict -summary \
+		-schema-location default \
+		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 	kubectl kustomize deploy/k8s/policies | kubeconform -strict -summary \
 		-schema-location default \
 		-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
@@ -49,5 +52,5 @@ k8s-policy-test:
 
 trivy-config:
 	for path in terraform/kubernetes deploy/k8s .harness; do \
-		trivy config --severity HIGH,CRITICAL --exit-code 1 $$path || exit 1; \
+		trivy config --severity HIGH,CRITICAL --ignorefile .trivyignore.yaml --exit-code 1 $$path || exit 1; \
 	done
