@@ -1,0 +1,62 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-pod-security
+  annotations:
+    policies.kyverno.io/title: Require restricted pod security
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/description: >-
+      CI workload code is untrusted (docs/THREAT-MODEL.md). Pods run as
+      non-root, cannot escalate, drop all capabilities and use a read-only
+      root filesystem. runAsUser is deliberately not pinned so the same
+      policy admits pods on OpenShift, where the restricted SCC assigns the UID.
+spec:
+  rules:
+    - name: run-as-non-root
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        failureAction: Enforce
+        message: "Pods must set runAsNonRoot: true."
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+    - name: restrict-containers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        failureAction: Enforce
+        message: "Containers must disable privilege escalation, drop ALL capabilities and use a read-only root filesystem."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities:
+                    drop:
+                      - ALL
+    - name: no-privileged
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        failureAction: Enforce
+        message: "Privileged containers and host namespaces are not allowed."
+        pattern:
+          spec:
+            =(hostNetwork): false
+            =(hostPID): false
+            =(hostIPC): false
+            containers:
+              - =(securityContext):
+                  =(privileged): false

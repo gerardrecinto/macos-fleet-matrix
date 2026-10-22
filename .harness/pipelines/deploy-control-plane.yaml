@@ -1,0 +1,164 @@
+pipeline:
+  name: deploy control plane
+  identifier: deploy_control_plane
+  projectIdentifier: macos_fleet_matrix
+  orgIdentifier: default
+  properties:
+    ci:
+      codebase:
+        connectorRef: account.github
+        repoName: macos-fleet-matrix
+        build: <+input>
+  stages:
+    - stage:
+        name: build scan sign
+        identifier: build_scan_sign
+        type: CI
+        spec:
+          cloneCodebase: true
+          caching:
+            enabled: true
+            paths:
+              - ~/.cache/pip
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: test
+                  identifier: test
+                  timeout: 10m
+                  spec:
+                    shell: Sh
+                    connectorRef: account.harnessImage
+                    image: python:3.12.7-slim-bookworm
+                    command: |
+                      python -m pip install -e '.[dev]'
+                      ruff check .
+                      pytest
+              - step:
+                  type: BuildAndPushDockerRegistry
+                  name: build and push
+                  identifier: build_and_push
+                  timeout: 15m
+                  spec:
+                    connectorRef: account.ghcr
+                    repo: ghcr.io/gerardrecinto/macos-fleet-matrix
+                    tags:
+                      - <+pipeline.sequenceId>
+              - step:
+                  type: Run
+                  name: trivy scan
+                  identifier: trivy_scan
+                  timeout: 10m
+                  spec:
+                    shell: Sh
+                    connectorRef: account.harnessImage
+                    image: aquasec/trivy:0.58.1
+                    command: trivy image --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed ghcr.io/gerardrecinto/macos-fleet-matrix:<+pipeline.sequenceId>
+              - step:
+                  type: Run
+                  name: cosign sign
+                  identifier: cosign_sign
+                  timeout: 5m
+                  spec:
+                    shell: Sh
+                    connectorRef: account.harnessImage
+                    image: gcr.io/projectsigstore/cosign:v2.4.1
+                    command: cosign sign --yes --key env://COSIGN_PRIVATE_KEY ghcr.io/gerardrecinto/macos-fleet-matrix:<+pipeline.sequenceId>
+                    envVariables:
+                      COSIGN_PRIVATE_KEY: <+secrets.getValue("cosign_private_key")>
+                      COSIGN_PASSWORD: <+secrets.getValue("cosign_password")>
+    - stage:
+        name: deploy ack staging
+        identifier: deploy_ack_staging
+        type: Deployment
+        failureStrategies:
+          - onFailure:
+              errors:
+                - AllErrors
+              action:
+                type: StageRollback
+        spec:
+          deploymentType: Kubernetes
+          service:
+            serviceRef: mfm_control_plane
+          environment:
+            environmentRef: staging
+            infrastructureDefinitions:
+              - identifier: ack_staging
+          execution:
+            steps:
+              - step:
+                  type: K8sRollingDeploy
+                  name: rolling deploy
+                  identifier: rolling_deploy
+                  timeout: 10m
+                  spec:
+                    skipDryRun: false
+            rollbackSteps:
+              - step:
+                  type: K8sRollingRollback
+                  name: rolling rollback
+                  identifier: rolling_rollback
+                  timeout: 10m
+                  spec: {}
+    - stage:
+        name: approve prod
+        identifier: approve_prod
+        type: Approval
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: HarnessApproval
+                  name: release manager
+                  identifier: release_manager
+                  timeout: 1d
+                  spec:
+                    approvalMessage: Staging is green. Promote this build to OpenShift prod?
+                    includePipelineExecutionHistory: true
+                    approvers:
+                      userGroups:
+                        - account._account_all_users
+                      minimumCount: 1
+                      disallowPipelineExecutor: true
+    - stage:
+        name: deploy openshift prod
+        identifier: deploy_openshift_prod
+        type: Deployment
+        failureStrategies:
+          - onFailure:
+              errors:
+                - AllErrors
+              action:
+                type: StageRollback
+        spec:
+          deploymentType: Kubernetes
+          service:
+            serviceRef: mfm_control_plane
+          environment:
+            environmentRef: prod
+            infrastructureDefinitions:
+              - identifier: openshift_prod
+          execution:
+            steps:
+              - step:
+                  type: K8sRollingDeploy
+                  name: rolling deploy
+                  identifier: rolling_deploy
+                  timeout: 10m
+                  spec:
+                    skipDryRun: false
+            rollbackSteps:
+              - step:
+                  type: K8sRollingRollback
+                  name: rolling rollback
+                  identifier: rolling_rollback
+                  timeout: 10m
+                  spec: {}
