@@ -6,6 +6,7 @@ import json
 import os
 import sys
 
+from . import reap
 from .health import parse_health
 from .inventory import Inventory
 
@@ -44,6 +45,11 @@ def build_parser() -> argparse.ArgumentParser:
     rel.add_argument("--runner", required=True)
     rel.add_argument("--job", required=True)
     rel.add_argument("--result", choices=("success", "failure", "cancelled"), required=True)
+
+    reap = sub.add_parser("reap", help="run the Rust lease reaper over the saved fleet state")
+    reap.add_argument("--reaper", help="path to the mfm-reaper binary (default: $MFM_REAPER, then PATH)")
+    reap.add_argument("--interval", type=float, default=30, help="seconds between sweeps")
+    reap.add_argument("--once", action="store_true", help="sweep once and exit")
     return p
 
 
@@ -63,7 +69,17 @@ def run(args: argparse.Namespace) -> int:
         _dump(inventory)
         return 0
 
-    inventory = Inventory.load(state)
+    if args.command == "reap":
+        if args.interval <= 0:
+            raise ValueError("interval must be positive")
+        return reap.main_loop(state, args.reaper, args.interval, args.once)
+
+    with Inventory.transaction(state) as inventory:
+        _lease(inventory, args)
+    return 0
+
+
+def _lease(inventory: Inventory, args: argparse.Namespace) -> None:
     if args.action == "acquire":
         if args.runner and (args.image or args.health):
             raise ValueError("--runner cannot be combined with --image or --health")
@@ -81,8 +97,6 @@ def run(args: argparse.Namespace) -> int:
         runner = inventory.get(args.runner)
         runner.release(args.job, args.result)
         print(f"draining {runner.runner_id} after {args.result}")
-    inventory.save(state)
-    return 0
 
 
 def main() -> int:
