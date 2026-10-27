@@ -44,6 +44,15 @@ jobs:
       - run: cargo fmt -- --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reaper against live CLI state
+        working-directory: .
+        run: |
+          cargo build --release --manifest-path src/mfm/Reaper/Cargo.toml
+          python -m pip install -e '.[dev]'
+          MFM_REAPER="$PWD/src/mfm/Reaper/target/release/mfm-reaper" python -m pytest tests/test_reap.py -v
 
   terraform:
     runs-on: ubuntu-latest

@@ -1,9 +1,12 @@
 """In-memory inventory used by the reference control plane and tests."""
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 from .health import NO_TELEMETRY_RANK, HostHealth
 from .model import Runner, RunnerState
@@ -83,6 +86,24 @@ class Inventory:
             inventory = cls()
             inventory.sample()
             return inventory
+
+    @classmethod
+    @contextmanager
+    def transaction(cls, path: str) -> Iterator[Inventory]:
+        """Load state under an exclusive lock, yield it, and save it on a clean exit.
+
+        The lock is what lets the lease CLI and the reaper loop share one state file
+        without one overwriting the other's change.
+        """
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        with open(path + ".lock", "w", encoding="utf-8") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            inventory = cls.load(path)
+            yield inventory
+            inventory.save(path)
+
+    def replace_with(self, other: Inventory) -> None:
+        self._runners = dict(other._runners)
 
     def save(self, path: str) -> None:
         """Write atomically so a crash mid-write never leaves a torn state file."""
