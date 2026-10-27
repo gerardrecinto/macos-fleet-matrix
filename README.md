@@ -26,7 +26,7 @@ The repository is intentionally useful on a laptop in simulation mode while pres
 
 What exists in this repository today, versus what the architecture below is designed to grow into:
 
-- **Control-plane CLI (Python, `src/mfm/`)** — an in-memory inventory and lease model (`mfm inventory sample`, `mfm lease acquire`, `mfm lease release`). Runs in simulation mode only; there is no adapter that boots a real Tart VM yet.
+- **Control-plane CLI (Python, `src/mfm/`)** — an inventory and lease model (`mfm inventory sample`, `mfm inventory list`, `mfm lease acquire`, `mfm lease release`). Lease state is saved to a JSON file between commands, and `lease acquire` can pick a runner using host telemetry. Runs in simulation mode only; there is no adapter that boots a real Tart VM yet.
 - **Host telemetry probe (Swift, `src/mfm/Telemetry/`)** — reads live thermal state and memory/swap pressure straight from the Mach host port and BSD sysctl tree. See [Host telemetry probe](#host-telemetry-probe-swift) below. It reports host health; it is not yet wired into the scheduler.
 - **Lease reaper (Rust, `src/mfm/Reaper/`)** — enforces the "fail closed" rule against an inventory snapshot: any leased runner past its `lease_expires_at` is quarantined. See [Lease reaper](#lease-reaper-rust) below. It operates on the same JSON shape the Python CLI emits; nothing yet pipes live inventory into it on a schedule.
 - **Multi-cloud control-plane infrastructure (Terraform + Terragrunt, `terraform/control-plane/`)** — one reusable Terraform module per provider (AWS, GCP, Azure, OpenStack, AliCloud) under `modules/`, each orchestrated by a Terragrunt stack under `live/` that stands up a single host running the published control-plane container. `terraform validate`/`fmt` run against every module and `terragrunt validate` runs against every live stack in CI; none have been applied against a live account from this repository. See [`terraform/control-plane/README.md`](terraform/control-plane/README.md) for the module/live split and scope.
@@ -98,6 +98,17 @@ mfm lease acquire --runner m1-01 --job demo-123
 mfm lease release --runner m1-01 --job demo-123 --result success
 ```
 
+State lives in `--state FILE`, then `$MFM_STATE`, then `$XDG_STATE_HOME/mfm/state.json`, so the two commands above see the same fleet. `mfm inventory list` prints every runner in every state; `mfm inventory sample` prints a fresh sample fleet and touches no state.
+
+Let the scheduler pick the runner from host telemetry instead of naming one:
+
+```bash
+mfm lease acquire --job demo-124 --image macos-15-xcode-16 --health health.json
+```
+
+`health.json` maps runner id to the probe's `HostHealthState` JSON. Hosts at `serious` or `critical` thermal state, or with more than half their swap in use, are skipped. The rest are ranked coolest and least-swapped first, and a runner with no entry ranks last. If every ready runner is refused, the command exits 2 and leases nothing.
+```
+
 Simulation is the default. Real Tart execution is an explicit adapter boundary and should only be enabled on an Apple Silicon host with the required tooling and entitlements.
 
 ## Lease reaper (Rust)
@@ -107,10 +118,10 @@ Requires Rust 1.75+ (stable channel).
 ```bash
 cd src/mfm/Reaper
 cargo test
-mfm inventory sample | cargo run --quiet
+mfm inventory list | cargo run --quiet
 ```
 
-`mfm-reaper` reads a fleet inventory snapshot as JSON — the same shape `mfm inventory` prints — and applies one rule: a runner in the `leased` state whose `lease_expires_at` is at or before the current time is quarantined, its job and lease fields cleared. Every other state passes through unchanged. This is the "fail closed" design principle from below expressed as a small, independently testable unit, in a second language on purpose: the Python model owns the state machine, the Rust binary only enforces one invariant against a snapshot of it. It is not yet wired into a scheduler loop — running it today means piping a snapshot into it by hand or from a script.
+`mfm-reaper` reads a fleet inventory snapshot as JSON — the same shape `mfm inventory list` prints — and applies one rule: a runner in the `leased` state whose `lease_expires_at` is at or before the current time is quarantined, its job and lease fields cleared. Every other state passes through unchanged. This is the "fail closed" design principle from below expressed as a small, independently testable unit, in a second language on purpose: the Python model owns the state machine, the Rust binary only enforces one invariant against a snapshot of it. It is not yet wired into a scheduler loop — running it today means piping a snapshot into it by hand or from a script.
 
 ## Host telemetry probe (Swift)
 
@@ -123,7 +134,7 @@ swift test
 
 `HostTelemetryProbe.sample()` returns a `HostHealthState`: thermal state from `ProcessInfo.thermalState`, and memory/swap pressure read via `host_statistics64(HOST_VM_INFO64)` and `sysctlbyname("vm.swapusage")` — the same kernel counters `vm_stat` and Activity Monitor read, without forking a process and parsing its text output. The struct is `Codable`; `HostHealthState.jsonData()` gives a stable, ISO 8601-timestamped JSON snapshot.
 
-This is a standalone probe today. It is not yet called by the scheduler, exported as Prometheus metrics, or used to gate lease acquisition — see [Roadmap](#roadmap).
+This is a standalone probe today. The Python CLI reads its JSON to gate lease acquisition (`mfm lease acquire --health`), but nothing collects it from live hosts on a schedule, and it is not exported as Prometheus metrics — see [Roadmap](#roadmap).
 
 ## Container image
 
@@ -136,7 +147,7 @@ docker run --rm mfm:dev inventory sample
 
 The image uses a multi-stage build, an explicit Python package build backend, a minimal Debian runtime, a non-root UID, bytecode compilation, OCI metadata, and a `.dockerignore`. CI builds and smoke-tests the image on every push and pull request.
 
-Release images are published to GHCR from the GitHub release workflow with version tags and provenance attestations. GitHub's Container Registry supports provenance attestations and recommends associating the package with the repository through the `org.opencontainers.image.source` label. citeturn0search2turn0search5
+Release images are published to GHCR from the GitHub release workflow with version tags and provenance attestations. GitHub's Container Registry supports provenance attestations and recommends associating the package with the repository through the `org.opencontainers.image.source` label.
 
 ## Architecture animation
 
@@ -167,7 +178,7 @@ Public pull requests are untrusted workloads. The runner broker must not give a 
 
 The real deployment should also enforce network egress policy, artifact allowlists, image provenance verification, macOS privacy permissions, audit logging, and secret rotation outside this repository.
 
-The container release workflow grants only `contents: read`, `packages: write`, `attestations: write`, and `id-token: write`, and uses immutable action references. GitHub documents `GITHUB_TOKEN` authentication for GHCR and recommends artifact attestations for container provenance. citeturn0search2
+The container release workflow grants only `contents: read`, `packages: write`, `attestations: write`, and `id-token: write`, and uses immutable action references. GitHub documents `GITHUB_TOKEN` authentication for GHCR and recommends artifact attestations for container provenance.
 
 ## Operational targets
 
@@ -185,10 +196,10 @@ These are targets for validation, not historical claims:
 
 Not yet implemented — listed here so the architecture diagram above isn't mistaken for shipped functionality:
 
-- **Virtualization.framework VM lifecycle** — no code boots, leases, or tears down a real VM. `mfm lease acquire` records state in memory only.
+- **Virtualization.framework VM lifecycle** — no code boots, leases, or tears down a real VM. `mfm lease acquire` records state in a local JSON file only.
 - **APFS copy-on-write image cloning** — the "immutable pool" step in the image pipeline is a documented contract in `packer/`, not exercised by any script.
 - **Xcode/Simulator toolchain matrix switching** — no code touches `xcode-select` or CoreSimulator runtime state.
-- **Telemetry-gated scheduling** — the host telemetry probe reports thermal/memory state but nothing yet reads it before assigning a job.
+- **Live telemetry collection** — `mfm lease acquire --health` gates on a health file you supply; nothing yet runs the Swift probe on each host and gathers the results.
 - **Prometheus/OpenTelemetry export** — `observability/prometheus.yml` is a scrape config target, not a running exporter.
 - **Tart, Spinnaker (image promotion), and Ansible integration** — documented in `deploy/SPINNAKER.md` and `ansible/`, not yet driven by CI. This is separate from the ArgoCD/Kubernetes manifests below, which are validated in CI.
 - **Scheduled reaping** — `mfm-reaper` is a correct, tested binary but nothing invokes it on a timer; there is no cron/systemd-timer/CronJob wiring it into a running fleet yet.

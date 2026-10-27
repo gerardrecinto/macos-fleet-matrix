@@ -28,6 +28,8 @@ class Runner:
             raise ValueError(f"runner {self.runner_id} is not ready")
         if not job_id:
             raise ValueError("job_id is required")
+        if ttl_seconds <= 0:
+            raise ValueError("ttl must be positive")
         self.state = RunnerState.LEASED
         self.job_id = job_id
         self.lease_expires_at = time() + ttl_seconds
@@ -40,6 +42,27 @@ class Runner:
         self.state = RunnerState.DRAINING
         self.job_id = None
         self.lease_expires_at = None
+
+    @classmethod
+    def from_dict(cls, doc: dict) -> Runner:
+        return cls(
+            runner_id=doc["runner_id"],
+            image=doc["image"],
+            arch=doc.get("arch", "arm64"),
+            state=RunnerState(doc.get("state", "ready")),
+            job_id=doc.get("job_id"),
+            lease_expires_at=doc.get("lease_expires_at"),
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "runner_id": self.runner_id,
+            "image": self.image,
+            "arch": self.arch,
+            "state": self.state.value,
+            "job_id": self.job_id,
+            "lease_expires_at": self.lease_expires_at,
+        }
 
     def quarantine(self) -> None:
         self.state = RunnerState.QUARANTINED
