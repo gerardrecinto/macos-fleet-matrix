@@ -28,7 +28,7 @@ jobs:
         run: |
           mkdir -p _site/py
           cp site/index.html _site/
-          cp src/mfm/__init__.py src/mfm/model.py src/mfm/inventory.py _site/py/
+          cp src/mfm/__init__.py src/mfm/model.py src/mfm/health.py src/mfm/inventory.py _site/py/
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v5
         with:
