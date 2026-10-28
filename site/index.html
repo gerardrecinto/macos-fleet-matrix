@@ -218,7 +218,7 @@ mfm lease release --runner m1-01 \
 <script>
 
 (() => {
-  const FILES = ["__init__.py", "model.py", "inventory.py"];
+  const FILES = ["__init__.py", "model.py", "health.py", "inventory.py"];
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   let py = null, sel = null, n = 0;
@@ -276,9 +276,9 @@ def op(kind, rid, job, ttl, result):
       py = await loadPyodide();
       py.FS.mkdirTree("/lib/mfm");
       await Promise.all(FILES.map(async (f) => { const r = await fetch("py/" + f); if (!r.ok) throw new Error("could not load " + f); py.FS.writeFile("/lib/mfm/" + f, await r.text()); }));
-      py.runPython("import sys; sys.path.insert(0, '/lib')"); py.runPython(PY); py.runPython("reset()");
+      py.runPython("import sys, types; sys.path.insert(0, '/lib'); sys.modules.setdefault('fcntl', types.ModuleType('fcntl'))"); py.runPython(PY); py.runPython("reset()");
       window.__MFM_READY__ = true; render();
-    } catch (e) { $("boot").textContent = "The in-browser control plane did not load (" + String(e.message || e).split("\n").pop() + "). The local quickstart below runs the same code."; }
+    } catch (e) { $("boot").textContent = "The in-browser control plane did not load (" + (String(e.message || e).trim().split("\n").pop() || "unknown error") + "). The local quickstart below runs the same code."; }
   })();
 })();
 
