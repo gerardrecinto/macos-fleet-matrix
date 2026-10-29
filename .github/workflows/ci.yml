@@ -12,6 +12,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  site:
+    name: Site behavior (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Verify deferred runtime, real Python leases, retry and no-JavaScript fallback
+        env:
+          SITE_BROWSER: ${{ matrix.browser }}
+        run: npm run test:site
+
   quickstart:
     name: README quickstart (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
