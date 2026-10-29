@@ -9,7 +9,7 @@
 # deployment; nothing else in this file needs to change.
 
 locals {
-  image_ref = "ghcr.io/gerardrecinto/macos-fleet-matrix:latest"
+  image_ref = "ghcr.io/gerardrecinto/macos-fleet-matrix:0.3.0"
 }
 
 remote_state {

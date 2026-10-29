@@ -7,12 +7,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
       - run: python -m pip install -e '.[dev]'
@@ -22,9 +27,29 @@ jobs:
         run: docker build --pull --tag mfm:test .
       - name: Smoke test control-plane container
         run: docker run --rm mfm:test inventory sample
+      - name: Trivy scan control-plane container
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          image-ref: mfm:test
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+  macos:
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[dev]'
+      - run: swift test
+      - run: pytest
 
   rust:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: src/mfm/Reaper
@@ -37,9 +62,19 @@ jobs:
       - run: cargo fmt -- --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Reaper against live CLI state
+        working-directory: .
+        run: |
+          cargo build --release --manifest-path src/mfm/Reaper/Cargo.toml
+          python -m pip install -e '.[dev]'
+          MFM_REAPER="$PWD/src/mfm/Reaper/target/release/mfm-reaper" python -m pytest tests/test_reap.py -v
 
   terraform:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       matrix:
         provider: [aws, gcp, azure, openstack, alicloud]
@@ -57,6 +92,7 @@ jobs:
 
   terragrunt:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       matrix:
         provider: [aws, gcp, azure, openstack, alicloud]
@@ -70,13 +106,95 @@ jobs:
           terraform_wrapper: false
       - name: Install Terragrunt
         run: |
-          curl -sL -o /usr/local/bin/terragrunt \
+          curl -sSfL -o terragrunt_linux_amd64 \
             https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.4/terragrunt_linux_amd64
-          chmod +x /usr/local/bin/terragrunt
+          echo "a2640da8455fa5f3671167e6373832b0907b9dc972dd01c2093cc7808934e158  terragrunt_linux_amd64" | sha256sum -c -
+          sudo install -m 0755 terragrunt_linux_amd64 /usr/local/bin/terragrunt
       - run: terragrunt validate
+
+  terraform-kubernetes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        platform: [ack, openshift]
+    defaults:
+      run:
+        working-directory: terraform/kubernetes/modules/${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_wrapper: false
+      - run: terraform fmt -check
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+
+  terragrunt-kubernetes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        platform: [ack, openshift]
+    defaults:
+      run:
+        working-directory: terraform/kubernetes/live/${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_wrapper: false
+      - name: Install Terragrunt
+        run: |
+          curl -sSfL -o terragrunt_linux_amd64 \
+            https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.4/terragrunt_linux_amd64
+          echo "a2640da8455fa5f3671167e6373832b0907b9dc972dd01c2093cc7808934e158  terragrunt_linux_amd64" | sha256sum -c -
+          sudo install -m 0755 terragrunt_linux_amd64 /usr/local/bin/terragrunt
+      - run: terragrunt validate
+
+  trivy-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        path: [terraform/kubernetes, deploy/k8s, .harness]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Trivy misconfiguration scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          scan-type: config
+          scan-ref: ${{ matrix.path }}
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+
+  kyverno:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d
+        with:
+          version: v1.31.0
+      - name: Install Kyverno CLI
+        run: |
+          curl -sSfL -o kyverno.tar.gz https://github.com/kyverno/kyverno/releases/download/v1.19.2/kyverno-cli_v1.19.2_linux_x86_64.tar.gz
+          echo "357eaf1df8bc24ddd5a73979fadeaae6a032e8710f11af264229756e4956bf4a  kyverno.tar.gz" | sha256sum -c -
+          tar xzf kyverno.tar.gz kyverno
+          sudo mv kyverno /usr/local/bin/kyverno
+      - name: Admit the rendered workloads under the cluster policies
+        run: |
+          for target in deploy/k8s/control-plane deploy/k8s/overlays/openshift; do
+            kubectl kustomize "$target" > /tmp/rendered.yaml
+            kyverno apply deploy/k8s/policies/disallow-latest-tag.yaml \
+              deploy/k8s/policies/require-pod-security.yaml \
+              deploy/k8s/policies/require-resource-limits.yaml \
+              --resource /tmp/rendered.yaml
+          done
 
   k8s-manifests:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d
@@ -84,10 +202,21 @@ jobs:
           version: v1.31.0
       - name: Install kubeconform
         run: |
-          curl -sL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz | tar xz kubeconform
+          curl -sSfL -o kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz
+          echo "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883  kubeconform.tar.gz" | sha256sum -c -
+          tar xzf kubeconform.tar.gz kubeconform
           sudo mv kubeconform /usr/local/bin/kubeconform
       - name: Validate control-plane Kubernetes manifests
         run: kubectl kustomize deploy/k8s/control-plane | kubeconform -strict -summary
+      - name: Validate OpenShift overlay
+        run: kubectl kustomize deploy/k8s/overlays/openshift | kubeconform -strict -summary
+      - name: Validate Kyverno policies
+        run: |
+          kubectl kustomize deploy/k8s/policies | kubeconform -strict -summary \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+      - name: Check Spinnaker pipeline is valid JSON
+        run: python3 -m json.tool deploy/spinnaker/control-plane-pipeline.json > /dev/null
       - name: Validate ArgoCD Application manifest
         run: |
           kubeconform -strict -summary \
@@ -97,15 +226,20 @@ jobs:
 
   policy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - name: Install Terragrunt
         run: |
-          curl -sL -o /usr/local/bin/terragrunt \
+          curl -sSfL -o terragrunt_linux_amd64 \
             https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.4/terragrunt_linux_amd64
-          chmod +x /usr/local/bin/terragrunt
+          echo "a2640da8455fa5f3671167e6373832b0907b9dc972dd01c2093cc7808934e158  terragrunt_linux_amd64" | sha256sum -c -
+          sudo install -m 0755 terragrunt_linux_amd64 /usr/local/bin/terragrunt
       - name: Check Terragrunt HCL formatting
         working-directory: terraform/control-plane
+        run: terragrunt hcl format --check
+      - name: Check Terragrunt HCL formatting (kubernetes)
+        working-directory: terraform/kubernetes
         run: terragrunt hcl format --check
       - name: Reject obvious credential material
         run: |

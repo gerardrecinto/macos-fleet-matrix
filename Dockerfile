@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime
 
-ARG VERSION=0.1.0
+ARG VERSION=0.3.0
 
 LABEL org.opencontainers.image.title="macos-fleet-matrix" \
       org.opencontainers.image.description="Ephemeral Apple Silicon macOS CI fleet control-plane reference implementation" \

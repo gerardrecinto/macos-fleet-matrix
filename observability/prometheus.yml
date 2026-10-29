@@ -3,10 +3,11 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: fleet-control-plane
-    static_configs:
-      - targets: ['fleet-api:8080']
-
+  # `mfm metrics` prints Prometheus text but does not serve HTTP. Run it from cron or a
+  # launchd timer into node-exporter's textfile collector directory:
+  #   mfm metrics > /var/lib/node_exporter/textfile/mfm.prom.tmp \
+  #     && mv /var/lib/node_exporter/textfile/mfm.prom.tmp /var/lib/node_exporter/textfile/mfm.prom
+  # and start node-exporter with --collector.textfile.directory=/var/lib/node_exporter/textfile.
   - job_name: node-exporter
     static_configs:
       - targets: ['node-exporter:9100']
