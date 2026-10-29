@@ -1,9 +1,12 @@
-.PHONY: ci test lint swift-test rust-test terraform-validate terragrunt-validate k8s-validate k8s-policy-test trivy-config
+.PHONY: ci test lint pipeline-validate swift-test rust-test terraform-validate terragrunt-validate k8s-validate k8s-policy-test trivy-config
 
-ci: lint test rust-test terraform-validate terragrunt-validate k8s-validate k8s-policy-test trivy-config
+ci: lint test pipeline-validate rust-test terraform-validate terragrunt-validate k8s-validate k8s-policy-test trivy-config
 
 test:
 	python -m pytest
+
+pipeline-validate:
+	mfm pipeline validate deploy/spinnaker/*.json
 
 lint:
 	ruff check .

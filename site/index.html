@@ -216,7 +216,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
       <li>A Rust reaper that quarantines expired leases. It takes back machines whose time ran out.</li>
     </ul></div>
     <div class="step"><h3>Design only</h3><ul>
-      <li>Booting a real VM. No Tart adapter exists yet (Tart runs macOS VMs on Apple Silicon).</li>
+      <li>Booting a real VM from this page. The CLI has an opt-in Tart backend (Tart runs macOS VMs on Apple Silicon), but it has only been tested against a fake tart script, never on a real VM.</li>
       <li>Image builds and rollout. The Terraform and Kubernetes files pass CI but have never been applied to a live account or cluster. The setup scripts are written and checked, but never switched on. Kyverno is one of those checks, a rule list that blocks unsafe software on the cluster.</li>
     </ul></div>
   </div>

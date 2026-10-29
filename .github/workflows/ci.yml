@@ -23,6 +23,8 @@ jobs:
       - run: python -m pip install -e '.[dev]'
       - run: ruff check .
       - run: pytest
+      - name: Validate Spinnaker pipelines (structure and promotion gates)
+        run: mfm pipeline validate deploy/spinnaker/*.json
       - name: Build control-plane container
         run: docker build --pull --tag mfm:test .
       - name: Smoke test control-plane container
@@ -215,8 +217,6 @@ jobs:
           kubectl kustomize deploy/k8s/policies | kubeconform -strict -summary \
             -schema-location default \
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
-      - name: Check Spinnaker pipeline is valid JSON
-        run: python3 -m json.tool deploy/spinnaker/control-plane-pipeline.json > /dev/null
       - name: Validate ArgoCD Application manifest
         run: |
           kubeconform -strict -summary \
