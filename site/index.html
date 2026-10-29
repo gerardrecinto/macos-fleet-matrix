@@ -50,7 +50,7 @@ nav .links a:hover{color:var(--fg)}
 .btn:disabled,.chip:disabled{opacity:.55;cursor:not-allowed}
 .skip{position:absolute;left:12px;top:-60px;z-index:10;background:var(--panel);color:var(--fg);padding:8px 14px;border-radius:8px;border:1px solid var(--line)}
 .skip:focus{top:8px}
-.btn:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.rn:focus-visible{outline:2px solid #06b6d4;outline-offset:2px}
+.btn:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,pre:focus-visible,.rn:focus-visible{outline:2px solid #06b6d4;outline-offset:2px}
 .hero{padding:72px 0 40px;text-align:center}
 .who{margin:0 0 14px;font-size:14px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--brand)}
 .pill{display:inline-block;font-size:13px;color:var(--brand);background:var(--brand-bg);padding:4px 12px;border-radius:99px;margin-bottom:20px;font-weight:600}
@@ -198,9 +198,9 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 
 <section><div class="wrap">
   <h2>How it works</h2>
-  <p class="plain">Each build gets a clean machine, uses it once, and then it is thrown away.</p>
+  <p class="plain">The intended deployment gives each build a clean machine, then destroys it. This page simulates the booking logic.</p>
   <div class="steps">
-    <div class="step"><div class="n">1</div><h3>Start from one image</h3><p>Every runner boots from the same known-good macOS and Xcode image.</p></div>
+    <div class="step"><div class="n">1</div><h3>Start from one image</h3><p>A real deployment would boot each runner from a known-good macOS and Xcode image. VM boot is not implemented here.</p></div>
     <div class="step"><div class="n">2</div><h3>One lease, one job</h3><p>A runner is leased to a single job for a set time. Only that job can release it.</p></div>
     <div class="step"><div class="n">3</div><h3>Expired means quarantined</h3><p>A runner past its lease is pulled out of use, not reused.</p></div>
   </div>
@@ -227,20 +227,21 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   <p class="sub">Needs Python 3.11 or later. State is saved between commands.</p>
   <div class="cols2">
     <div>
-<div class="pre"><pre>git clone https://github.com/gerardrecinto/macos-fleet-matrix
+<div class="pre"><pre tabindex="0">git clone https://github.com/gerardrecinto/macos-fleet-matrix
 cd macos-fleet-matrix
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev]'
+python -m pip install -e '.[dev]'
 pytest</pre></div>
     </div>
     <div>
-<div class="pre"><pre>mfm inventory sample
+<div class="pre"><pre tabindex="0">export MFM_STATE="$(mktemp -d)/state.json"
+mfm inventory sample
 mfm lease acquire --runner m1-01 --job demo-123
 mfm lease release --runner m1-01 \
   --job demo-123 --result success
 mfm metrics</pre></div>
-      <p class="note">State lives in <code>~/.local/state/mfm/state.json</code>. Delete it to start over.</p>
+      <p class="note">This demo uses temporary state. Run the <code>export MFM_STATE=...</code> line again to start over without touching your existing fleet.</p>
     </div>
   </div>
 </div></section>
