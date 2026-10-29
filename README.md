@@ -2,7 +2,7 @@
 
 A reference design and working simulation of a control plane that gives each macOS CI job its own short-lived Apple Silicon runner. It is for platform and CI engineers who run macOS builds. No real VM boots from this code yet.
 
-*Put simply: each build gets a clean machine, uses it once, and the machine is thrown away.*
+*New here? Each build gets a clean machine, uses it once, and the machine is thrown away.*
 
 Live demo in your browser: https://gerardrecinto.github.io/macos-fleet-matrix/
 
@@ -34,7 +34,7 @@ A released runner goes to `draining` and cannot be leased again. Trying gives `m
 
 ## What works today, and what is design only
 
-*Put simply: the booking logic works. Real Mac machines and cloud setup are plans only.*
+*The booking logic works. Real Mac machines and cloud setup are plans only.*
 
 Works and is tested:
 - Python CLI for leases, with state saved between commands: `mfm inventory`, `lease acquire`, `lease release`, `metrics`, `reap`.
@@ -123,7 +123,7 @@ Simulation is the default. Real Tart execution is an explicit adapter boundary a
 <details>
 <summary>Repository layout</summary>
 
-*Put simply: the setup scripts for cloud servers and clusters are written and checked, but never switched on. Kyverno is a rule list that blocks unsafe software on a cluster.*
+*The setup scripts for cloud servers and clusters are written and checked, but never switched on. Kyverno is a rule list that blocks unsafe software on a cluster.*
 
 - `src/mfm/` small Python control-plane library and CLI
 - `src/mfm/Telemetry/` Swift host telemetry probe (thermal state, memory/swap)
@@ -153,7 +153,7 @@ Terms: Kyverno enforces rules on a Kubernetes cluster. Argo CD syncs manifests f
 <details>
 <summary>Lease reaper (Rust)</summary>
 
-*Put simply: it takes back machines whose booking time ran out.*
+*It takes back machines whose booking time ran out.*
 
 Requires Rust 1.75+ (stable channel).
 
@@ -179,7 +179,7 @@ mfm reap --reaper src/mfm/Reaper/target/release/mfm-reaper --interval 30
 <details>
 <summary>Host telemetry probe (Swift)</summary>
 
-*Put simply: it checks that a Mac is not too hot or too full before it gets a job.*
+*It checks that a Mac is not too hot or too full before it gets a job.*
 
 Requires macOS 13+ on Apple Silicon and Swift 5.9+.
 

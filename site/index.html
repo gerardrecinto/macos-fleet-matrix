@@ -167,7 +167,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 
 <section id="try"><div class="wrap">
   <h2>Lease a runner for one job</h2>
-  <p class="plain"><b>Put simply:</b> a lease is a booking. One job gets one machine for a set time, and nobody else can touch it.</p>
+  <p class="plain">A lease is a booking. One job gets one machine for a set time, and nobody else can touch it.</p>
   <p class="sub">This runs the repo's real Python code in your browser. Lease a runner, release it, then break a rule and read the error.</p>
   <div class="lab">
     <div class="card">
@@ -198,7 +198,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 
 <section><div class="wrap">
   <h2>How it works</h2>
-  <p class="plain"><b>Put simply:</b> each build gets a clean machine, uses it once, and then it is thrown away.</p>
+  <p class="plain">Each build gets a clean machine, uses it once, and then it is thrown away.</p>
   <div class="steps">
     <div class="step"><div class="n">1</div><h3>Start from one image</h3><p>Every runner boots from the same known-good macOS and Xcode image.</p></div>
     <div class="step"><div class="n">2</div><h3>One lease, one job</h3><p>A runner is leased to a single job for a set time. Only that job can release it.</p></div>
@@ -208,16 +208,16 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 
 <section><div class="wrap">
   <h2>What is real today</h2>
-  <p class="plain"><b>Put simply:</b> the booking logic works. The real Mac machines and cloud setup are plans only.</p>
+  <p class="plain">The booking logic works. The real Mac machines and cloud setup are plans only.</p>
   <div class="cols2">
     <div class="step"><h3>Works and is tested</h3><ul>
       <li>The lease code and CLI you just used.</li>
-      <li>A Swift probe for host heat and memory pressure. Put simply: it checks that a Mac is not too hot or too full before it gets a job.</li>
-      <li>A Rust reaper that quarantines expired leases. Put simply: it takes back machines whose time ran out.</li>
+      <li>A Swift probe for host heat and memory pressure. It checks that a Mac is not too hot or too full before it gets a job.</li>
+      <li>A Rust reaper that quarantines expired leases. It takes back machines whose time ran out.</li>
     </ul></div>
     <div class="step"><h3>Design only</h3><ul>
       <li>Booting a real VM. No Tart adapter exists yet (Tart runs macOS VMs on Apple Silicon).</li>
-      <li>Image builds and rollout. The Terraform and Kubernetes files pass CI but have never been applied to a live account or cluster. Put simply: the setup scripts are written and checked, but never switched on. Kyverno is one of those checks, a rule list that blocks unsafe software on the cluster.</li>
+      <li>Image builds and rollout. The Terraform and Kubernetes files pass CI but have never been applied to a live account or cluster. The setup scripts are written and checked, but never switched on. Kyverno is one of those checks, a rule list that blocks unsafe software on the cluster.</li>
     </ul></div>
   </div>
 </div></section>
