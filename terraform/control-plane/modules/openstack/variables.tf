@@ -1,7 +1,6 @@
 variable "image_ref" {
   type        = string
   description = "Container image reference to pull and smoke-test on boot."
-  default     = "ghcr.io/gerardrecinto/macos-fleet-matrix:latest"
 }
 
 variable "flavor_name" {

@@ -5,10 +5,12 @@ import argparse
 import json
 import os
 import sys
+import time
 
-from . import reap
+from . import __version__, reap
 from .health import parse_health
 from .inventory import Inventory
+from .model import RunnerState
 
 
 def default_state_path() -> str:
@@ -16,8 +18,19 @@ def default_state_path() -> str:
     return os.path.join(base, "mfm", "state.json")
 
 
+def _positive_int(raw: str) -> int:
+    try:
+        value = int(raw)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not an integer: {raw}") from None
+    if value <= 0:
+        raise argparse.ArgumentTypeError("ttl must be positive")
+    return value
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="mfm")
+    p.add_argument("--version", action="version", version=f"mfm {__version__}")
     p.add_argument(
         "--state",
         default=os.environ.get("MFM_STATE") or None,
@@ -40,11 +53,15 @@ def build_parser() -> argparse.ArgumentParser:
         "hot or swapping hosts are skipped and the rest ranked coolest first",
     )
     acq.add_argument("--job", required=True)
-    acq.add_argument("--ttl", type=int, default=1800)
+    acq.add_argument("--ttl", type=_positive_int, default=1800)
+    acq.add_argument("--json", action="store_true", help="print the leased runner as JSON")
     rel = lease_sub.add_parser("release")
     rel.add_argument("--runner", required=True)
     rel.add_argument("--job", required=True)
     rel.add_argument("--result", choices=("success", "failure", "cancelled"), required=True)
+    rel.add_argument("--json", action="store_true", help="print the released runner as JSON")
+
+    sub.add_parser("metrics", help="print fleet metrics in Prometheus text format")
 
     reap = sub.add_parser("reap", help="run the Rust lease reaper over the saved fleet state")
     reap.add_argument("--reaper", help="path to the mfm-reaper binary (default: $MFM_REAPER, then PATH)")
@@ -57,6 +74,27 @@ def _dump(inventory: Inventory) -> None:
     print(json.dumps([r.to_dict() for r in inventory.all()], indent=2))
 
 
+def render_metrics(inventory: Inventory, now: float) -> str:
+    runners = inventory.all()
+    lines = [
+        "# HELP mfm_runners Runners in the saved fleet state, by lifecycle state.",
+        "# TYPE mfm_runners gauge",
+    ]
+    for state in RunnerState:
+        count = sum(1 for r in runners if r.state is state)
+        lines.append(f'mfm_runners{{state="{state.value}"}} {count}')
+    lines += [
+        "# HELP mfm_lease_seconds_until_expiry Seconds until a leased runner's lease expires; negative once overdue.",
+        "# TYPE mfm_lease_seconds_until_expiry gauge",
+    ]
+    for r in runners:
+        if r.state is RunnerState.LEASED and r.lease_expires_at is not None:
+            lines.append(
+                f'mfm_lease_seconds_until_expiry{{runner="{r.runner_id}"}} {r.lease_expires_at - now:.0f}'
+            )
+    return "\n".join(lines) + "\n"
+
+
 def run(args: argparse.Namespace) -> int:
     state = args.state or default_state_path()
 
@@ -67,6 +105,10 @@ def run(args: argparse.Namespace) -> int:
         else:
             inventory = Inventory.load(state)
         _dump(inventory)
+        return 0
+
+    if args.command == "metrics":
+        print(render_metrics(Inventory.load(state), time.time()), end="")
         return 0
 
     if args.command == "reap":
@@ -92,11 +134,17 @@ def _lease(inventory: Inventory, args: argparse.Namespace) -> None:
                     health = parse_health(json.load(handle))
             runner = inventory.pick(args.image, health)
         runner.lease(args.job, args.ttl)
-        print(f"leased {runner.runner_id} to {args.job}")
+        if args.json:
+            print(json.dumps(runner.to_dict(), indent=2))
+        else:
+            print(f"leased {runner.runner_id} to {args.job}")
     else:
         runner = inventory.get(args.runner)
         runner.release(args.job, args.result)
-        print(f"draining {runner.runner_id} after {args.result}")
+        if args.json:
+            print(json.dumps(runner.to_dict(), indent=2))
+        else:
+            print(f"draining {runner.runner_id} after {args.result}")
 
 
 def main() -> int:

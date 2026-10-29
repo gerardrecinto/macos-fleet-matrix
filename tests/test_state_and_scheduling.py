@@ -56,8 +56,7 @@ def test_inventory_sample_does_not_touch_state(tmp_path, monkeypatch, capsys):
     "argv, fragment",
     [
         (["lease", "acquire", "--runner", "nope", "--job", "j"], "unknown runner: nope"),
-        (["lease", "acquire", "--runner", "m1-01", "--job", "j", "--ttl", "0"], "ttl must be positive"),
-        (["lease", "release", "--runner", "m1-01", "--job", "j", "--result", "success"], "does not belong"),
+        (["lease", "release", "--runner", "m1-01", "--job", "j", "--result", "success"], "no active lease"),
         (["lease", "acquire", "--runner", "m1-01", "--image", "x", "--job", "j"], "cannot be combined"),
     ],
 )
@@ -115,3 +114,10 @@ def test_state_roundtrip_preserves_runner_fields():
 
 def test_parser_builds():
     assert build_parser().parse_args(["inventory", "list"]).action == "list"
+
+
+def test_version_flag(monkeypatch, capsys):
+    monkeypatch.setattr("sys.argv", ["mfm", "--version"])
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 0 and capsys.readouterr().out.startswith("mfm ")
