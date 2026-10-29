@@ -1,12 +1,33 @@
 # macOS Fleet Matrix
 
-A production-oriented reference architecture for ephemeral Apple Silicon macOS CI runners using Tart, Packer, Ansible, GitHub Actions, Buildkite, Spinnaker, Prometheus, OpenTelemetry, and Grafana.
+Give every macOS CI job a fresh, disposable Apple Silicon VM, then throw it away. This repository is a reference design and a working simulation of the control plane for that: a lease model, a thermal and memory probe that keeps jobs off sick hosts, and a fail-closed lease reaper. It is built around Tart, Packer, Ansible, GitHub Actions, Buildkite, Spinnaker, Prometheus, OpenTelemetry, and Grafana. No real VM boots from this code yet; see the status table.
 
 <p align="center">
-  <img src="docs/assets/fleet-lifecycle.svg" alt="Animated macOS Fleet Matrix runner lifecycle" width="100%">
+  <img src="docs/assets/fleet-lifecycle.svg" alt="Animated runner lifecycle in six stages: queue, lease, boot, build, teardown, recover" width="100%">
 </p>
 
 <p align="center"><strong>QUEUE → LEASE → BOOT → BUILD → TEARDOWN → RECOVER</strong></p>
+
+## Status
+
+| Status | What |
+| --- | --- |
+| Implemented | Python lease CLI with state saved between commands (`mfm inventory`, `lease acquire`, `lease release`, `metrics`, `reap`); Swift thermal and memory probe; Rust lease reaper; container image for the Linux control plane; Terraform and Terragrunt validated in CI; Kubernetes, ArgoCD and Kyverno manifests validated in CI |
+| Designed only | VM boot through Tart or Virtualization.framework; Packer image builder and APFS cloning; Xcode and Simulator switching; Spinnaker image promotion; Ansible host role; applied Terraform in any cloud; live ArgoCD sync; running telemetry collection on hosts |
+| Not started | Real Tart adapter; launchd or systemd unit for the reaper; OpenTelemetry export; remote Terraform state |
+
+The lead differentiator is the host probe: it reads thermal state and memory and swap pressure straight from the kernel, and `mfm lease acquire --health` refuses hot or swapping hosts. The write-up is in [`docs/BLOG-THERMAL-MEMORY-PROBING.md`](docs/BLOG-THERMAL-MEMORY-PROBING.md).
+
+Details live in the places that own them:
+
+- Control-plane CLI: [Quick start](#quick-start) and `src/mfm/`
+- Telemetry probe: [Host telemetry probe](#host-telemetry-probe-swift)
+- Lease reaper: [Lease reaper](#lease-reaper-rust)
+- Cloud control-plane infrastructure: [`terraform/control-plane/README.md`](terraform/control-plane/README.md)
+- Continuous deployment: [`deploy/argocd/README.md`](deploy/argocd/README.md)
+- Kubernetes workloads, Kyverno, Cosign, Trivy: `terraform/kubernetes/`, `deploy/k8s/`, `deploy/spinnaker/`, `.harness/`. None of it has been applied to a live cluster. The Kyverno signature policy is in `Audit` mode because images published before the Cosign step have no signature.
+- Tested versions: [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md)
+- Reporting a vulnerability: [`SECURITY.md`](SECURITY.md); contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ## Why this exists
 
@@ -21,20 +42,6 @@ macOS CI capacity is expensive and stateful by default. This project treats each
 7. Replenish capacity from the known-good image.
 
 The repository is intentionally useful on a laptop in simulation mode while preserving clear seams for a real Apple Silicon fleet.
-
-## Current capabilities
-
-What exists in this repository today, versus what the architecture below is designed to grow into:
-
-- **Control-plane CLI (Python, `src/mfm/`)** — an inventory and lease model (`mfm inventory sample`, `mfm inventory list`, `mfm lease acquire`, `mfm lease release`). Lease state is saved to a JSON file between commands, and `lease acquire` can pick a runner using host telemetry. Runs in simulation mode only; there is no adapter that boots a real Tart VM yet.
-- **Host telemetry probe (Swift, `src/mfm/Telemetry/`)** — reads live thermal state and memory/swap pressure straight from the Mach host port and BSD sysctl tree. See [Host telemetry probe](#host-telemetry-probe-swift) below. It reports host health; it is not yet wired into the scheduler.
-- **Lease reaper (Rust, `src/mfm/Reaper/`)** — enforces the "fail closed" rule against an inventory snapshot: any leased runner past its `lease_expires_at` is quarantined. See [Lease reaper](#lease-reaper-rust) below. It operates on the same JSON shape the Python CLI emits; `mfm reap` pipes the saved fleet state into it on a timer.
-- **Multi-cloud control-plane infrastructure (Terraform + Terragrunt, `terraform/control-plane/`)** — one reusable Terraform module per provider (AWS, GCP, Azure, OpenStack, AliCloud) under `modules/`, each orchestrated by a Terragrunt stack under `live/` that stands up a single host running the published control-plane container. `terraform validate`/`fmt` run against every module and `terragrunt validate` runs against every live stack in CI; none have been applied against a live account from this repository. See [`terraform/control-plane/README.md`](terraform/control-plane/README.md) for the module/live split and scope.
-- **Continuous deployment (ArgoCD, `deploy/argocd/`, `deploy/k8s/control-plane/`)** — a real ArgoCD `Application` manifest and a Kustomize-built CronJob that runs the published control-plane image's smoke check on a schedule, the Kubernetes-native equivalent of what the cloud-init templates above do on a VM. Validated with `kubeconform` in CI. See [`deploy/argocd/README.md`](deploy/argocd/README.md) for scope — no live cluster is synced from this repository.
-- **Container and Kubernetes workloads (`terraform/kubernetes/`, `deploy/k8s/`, `deploy/spinnaker/`, `.harness/`)** — Terraform modules and Terragrunt stacks for a managed cluster on AliCloud (ACK, `alicloud_cs_managed_kubernetes` plus a node pool) and on Azure Red Hat OpenShift (`azurerm_redhat_openshift_cluster`), both with private API endpoints. Four Kyverno `ClusterPolicy` resources in `deploy/k8s/policies/` (Cosign keyless signature check, no `latest` tag, restricted pod security, resource limits), and a Kustomize overlay in `deploy/k8s/overlays/openshift/` that drops the pinned `runAsUser` so the pod fits OpenShift's restricted SCC. The publish workflow now runs Trivy against the pushed image and signs it with Cosign (keyless, GitHub OIDC); CI scans the image and the new IaC and manifests with Trivy. A Spinnaker pipeline (`deploy/spinnaker/control-plane-pipeline.json`) and a Harness pipeline (`.harness/pipelines/deploy-control-plane.yaml`, linted with [harness-doctor](https://github.com/gerardrecinto/harness-doctor)) both go verify, build or bake, ACK staging, approval, OpenShift prod. Everything is validated in CI (`terraform validate`, `terragrunt validate`, `kubeconform`, `kyverno apply` against the rendered manifests, Trivy). None of it has been applied to a live cluster, and neither pipeline has run on a live Spinnaker or Harness. The Kyverno signature policy is in `Audit` mode because images published before the Cosign step have no signature; switch it to `Enforce` after the next release.
-- **Docs and CI** — the architecture animation, threat model, and operations runbook are real documents, tested and lint-checked on every push. The container release workflow publishes the Linux control-plane image to GHCR.
-
-Everything else in the architecture diagram — image baking, Spinnaker promotion, the Ansible host role — is a documented design, not yet exercised end-to-end by CI. The Kubernetes/ArgoCD manifests are the exception: they're schema-validated in CI (see above), just never applied to a live cluster.
 
 ## Architecture
 
@@ -96,9 +103,12 @@ pytest
 mfm inventory sample
 mfm lease acquire --runner m1-01 --job demo-123
 mfm lease release --runner m1-01 --job demo-123 --result success
+mfm metrics
 ```
 
-State lives in `--state FILE`, then `$MFM_STATE`, then `$XDG_STATE_HOME/mfm/state.json`, so the two commands above see the same fleet. `mfm inventory list` prints every runner in every state; `mfm inventory sample` prints a fresh sample fleet and touches no state.
+State lives in `--state FILE`, then `$MFM_STATE`, then `$XDG_STATE_HOME/mfm/state.json`, so the two commands above see the same fleet. `mfm inventory list` prints every runner in every state; `mfm inventory sample` prints a fresh sample fleet and touches no state. `lease acquire` and `lease release` take `--json` for machine-readable output, and `--version` prints the version.
+
+`mfm metrics` prints runners by state and seconds until each lease expires (negative once overdue) in Prometheus text format. It does not serve HTTP; write it to node-exporter's textfile collector directory on a timer, as described in `observability/prometheus.yml`.
 
 Let the scheduler pick the runner from host telemetry instead of naming one:
 
@@ -209,7 +219,7 @@ Not yet implemented — listed here so the architecture diagram above isn't mist
 - **APFS copy-on-write image cloning** — the "immutable pool" step in the image pipeline is a documented contract in `packer/`, not exercised by any script.
 - **Xcode/Simulator toolchain matrix switching** — no code touches `xcode-select` or CoreSimulator runtime state.
 - **Live telemetry collection** — `mfm lease acquire --health` gates on a health file you supply; nothing yet runs the Swift probe on each host and gathers the results.
-- **Prometheus/OpenTelemetry export** — `observability/prometheus.yml` is a scrape config target, not a running exporter.
+- **Prometheus/OpenTelemetry export**: `mfm metrics` prints fleet gauges in Prometheus text, but nothing serves or schedules it, the host probe is not exported, and there is no OpenTelemetry.
 - **Tart, Spinnaker (image promotion), and Ansible integration** — documented in `deploy/SPINNAKER.md` and `ansible/`, not yet driven by CI. This is separate from the ArgoCD/Kubernetes manifests below, which are validated in CI.
 - **Deployed reaping** — `mfm reap` runs the reaper on a timer against a local state file, but no launchd unit, systemd timer or CronJob runs it on a real control-plane host, and the state file is single-host.
 - **Live multi-cloud deployment** — the Terraform in `terraform/control-plane/` is validated in CI but has never been applied against a real AWS, GCP, Azure, OpenStack, or AliCloud account; there is no remote state backend or CI job authorized to run `terraform apply` or `terragrunt run --all apply`.

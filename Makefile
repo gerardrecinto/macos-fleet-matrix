@@ -1,4 +1,6 @@
-.PHONY: test lint swift-test rust-test terraform-validate terragrunt-validate k8s-validate k8s-policy-test trivy-config
+.PHONY: ci test lint swift-test rust-test terraform-validate terragrunt-validate k8s-validate k8s-policy-test trivy-config
+
+ci: lint test rust-test terraform-validate terragrunt-validate k8s-validate k8s-policy-test trivy-config
 
 test:
 	python -m pytest

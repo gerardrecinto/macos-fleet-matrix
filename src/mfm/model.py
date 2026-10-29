@@ -35,7 +35,9 @@ class Runner:
         self.lease_expires_at = time() + ttl_seconds
 
     def release(self, job_id: str, result: str) -> None:
-        if self.state is not RunnerState.LEASED or self.job_id != job_id:
+        if self.state is not RunnerState.LEASED:
+            raise ValueError(f"runner {self.runner_id} has no active lease")
+        if self.job_id != job_id:
             raise ValueError("lease does not belong to job")
         if result not in {"success", "failure", "cancelled"}:
             raise ValueError("invalid job result")
