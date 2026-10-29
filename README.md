@@ -284,3 +284,5 @@ Not yet implemented, listed here so the architecture diagram above isn't mistake
 - **Live ArgoCD sync**, `deploy/argocd/application.yaml` is a real, validated manifest, but it has never been applied to a cluster from this repository; there is no cluster endpoint or credential here to sync against.
 
 </details>
+
+Optional paid help: [scoped reviews and setup](SUPPORT.md).
