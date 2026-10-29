@@ -3,7 +3,7 @@ name: Pages
 on:
   push:
     branches: [main]
-    paths: ["site/**", "src/mfm/**", ".github/workflows/pages.yml"]
+    paths: ["site/**", "src/mfm/**", "docs/assets/social-preview.png", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -28,6 +28,7 @@ jobs:
         run: |
           mkdir -p _site/py
           cp site/index.html _site/
+          cp docs/assets/social-preview.png _site/
           cp src/mfm/__init__.py src/mfm/model.py src/mfm/health.py src/mfm/inventory.py _site/py/
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v5

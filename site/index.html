@@ -5,9 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>macos-fleet-matrix: one runner, one job</title>
 <meta name="description" content="Lease simulated Apple Silicon CI runners with the repo's real control-plane code in your browser. See what exists today versus what is design.">
-<meta property="og:title" content="macos-fleet-matrix">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#06b6d4">
+<link rel="canonical" href="https://gerardrecinto.github.io/macos-fleet-matrix/">
+<meta property="og:site_name" content="macos-fleet-matrix">
+<meta property="og:url" content="https://gerardrecinto.github.io/macos-fleet-matrix/">
+<meta property="og:title" content="macos-fleet-matrix: one runner, one job">
 <meta property="og:description" content="Lease simulated Apple Silicon CI runners with the repo's real control-plane code in your browser. See what exists today versus what is design.">
 <meta property="og:type" content="website">
+<meta property="og:image" content="https://gerardrecinto.github.io/macos-fleet-matrix/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="macos-fleet-matrix: ephemeral Apple Silicon CI runners, one lease per job">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="macos-fleet-matrix: one runner, one job">
+<meta name="twitter:description" content="Lease simulated Apple Silicon CI runners with the repo's real control-plane code in your browser. See what exists today versus what is design.">
+<meta name="twitter:image" content="https://gerardrecinto.github.io/macos-fleet-matrix/social-preview.png">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2306b6d4'/%3E%3Ccircle cx='16' cy='16' r='6' fill='none' stroke='%23fff' stroke-width='3'/%3E%3C/svg%3E">
 <style>
 
@@ -15,7 +29,8 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#070d1a;--panel:#0d1526;--panel2:#111c33;--line:#1e2b47;--fg:#e8eefc;--mute:#9fb0cc;--brand:#22d3ee;--brand-bg:#08333d;--ok:#34d399;--ok-bg:#06382b;--err:#fca5a5;--err-bg:#3b1212}}
 :root[data-theme=dark]{--bg:#070d1a;--panel:#0d1526;--panel2:#111c33;--line:#1e2b47;--fg:#e8eefc;--mute:#9fb0cc;--brand:#22d3ee;--brand-bg:#08333d;--ok:#34d399;--ok-bg:#06382b;--err:#fca5a5;--err-bg:#3b1212}
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 a{color:var(--brand)}
 code,pre,textarea,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
@@ -30,8 +45,14 @@ nav .links a:hover{color:var(--fg)}
 .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;font-weight:600;text-decoration:none;border:1px solid var(--line);color:var(--fg);background:var(--panel);cursor:pointer;font-size:15px}
 .btn.primary{background:#06b6d4;border-color:#06b6d4;color:#032a33}
 .btn.primary:hover{background:#22d3ee}
-.btn:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid #06b6d4;outline-offset:2px}
+.btn,.chip,.rn{transition:background-color .15s,border-color .15s,transform .15s}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn:disabled,.chip:disabled{opacity:.55;cursor:not-allowed}
+.skip{position:absolute;left:12px;top:-60px;z-index:10;background:var(--panel);color:var(--fg);padding:8px 14px;border-radius:8px;border:1px solid var(--line)}
+.skip:focus{top:8px}
+.btn:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.rn:focus-visible{outline:2px solid #06b6d4;outline-offset:2px}
 .hero{padding:72px 0 40px;text-align:center}
+.who{margin:0 0 14px;font-size:14px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--brand)}
 .pill{display:inline-block;font-size:13px;color:var(--brand);background:var(--brand-bg);padding:4px 12px;border-radius:99px;margin-bottom:20px;font-weight:600}
 h1{font-size:clamp(34px,6vw,58px);line-height:1.08;margin:0 0 18px;letter-spacing:-.02em}
 h1 em{font-style:normal;color:var(--brand)}
@@ -39,17 +60,23 @@ h1 em{font-style:normal;color:var(--brand)}
 .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
 .stats{display:flex;gap:28px;justify-content:center;flex-wrap:wrap;margin-top:36px;color:var(--mute);font-size:14px}
 .stats b{display:block;color:var(--fg);font-size:22px}
+@media (max-width:560px){.hero{padding:44px 0 24px}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:28px;font-size:12.5px}.stats b{font-size:20px}}
 section{padding:56px 0}
 h2{font-size:clamp(26px,4vw,36px);margin:0 0 8px;letter-spacing:-.01em}
+.step ul{margin:8px 0 0;padding-left:18px;color:var(--mute);font-size:15px}
+.step ul li+li{margin-top:6px}
+.plain{margin:0 0 14px;color:var(--mute);font-size:14px}
+.plain b{font-weight:600}
+.hero .note{margin-top:20px}
 .sub{color:var(--mute);margin:0 0 28px;max-width:720px}
 .lab{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
 @media (max-width:860px){.lab{grid-template-columns:minmax(0,1fr)}nav .links .hide-s{display:none}}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-width:0}
 .card h3{margin:0;padding:12px 16px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .tools{display:flex;gap:6px;flex-wrap:wrap}
-.chip{font:600 12px system-ui;padding:5px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);cursor:pointer;text-transform:none;letter-spacing:0}
+.chip{font:600 12px system-ui;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);cursor:pointer;text-transform:none;letter-spacing:0}
 .chip[aria-pressed=true]{background:var(--brand-bg);border-color:var(--brand);color:var(--brand)}
-#log{display:block;width:100%;height:420px;border:0;padding:12px 14px;font-size:12.5px;line-height:1.55;background:var(--code);color:var(--code-fg);resize:vertical;white-space:pre;overflow:auto}
+#log{min-height:160px}
 .src{display:flex;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--mute);flex-wrap:wrap}
 .out{min-height:420px}
 .status{padding:16px;color:var(--mute);font-size:14px}
@@ -80,6 +107,10 @@ th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vert
 th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);background:var(--panel2)}
 tr:last-child td{border-bottom:0}
 td:first-child{font-family:ui-monospace,monospace;font-weight:700;white-space:nowrap}
+.pre{position:relative;margin:0 0 12px}
+.pre pre{margin:0!important}
+.copy{position:absolute;top:8px;right:8px;font:600 12px system-ui;padding:5px 10px;border-radius:8px;border:1px solid #334155;background:#111c33;color:#e2e8f0;cursor:pointer}
+.copy:hover{border-color:#22d3ee}
 .install pre{background:var(--code);color:var(--code-fg);padding:16px;border-radius:12px;overflow-x:auto;font-size:13.5px;margin:0 0 12px}
 .cols2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
 @media (max-width:860px){.cols2{grid-template-columns:minmax(0,1fr)}}
@@ -100,7 +131,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .st.draining{background:#3a2a07;color:#fcd34d}}
 .ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 14px;border-top:1px solid var(--line)}
 .ctrl label{font-size:13px;color:var(--mute)}
-.ctrl input,.ctrl select{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px;max-width:100%}
+.ctrl input,.ctrl select{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;max-width:100%}
 .ctrl input{width:120px}
 .logbox{max-height:420px;overflow:auto}
 .ln{padding:8px 14px;border-bottom:1px solid var(--line);font-size:13px;overflow-wrap:anywhere}
@@ -109,112 +140,119 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .ln .t{font:600 11px ui-monospace,monospace;color:var(--mute);margin-right:8px}
 .flag{font:700 11px ui-monospace,monospace;padding:2px 8px;border-radius:6px;background:var(--err-bg);color:var(--err);margin-left:6px}
 .sim{display:inline-block;font:700 11px ui-monospace,monospace;color:var(--brand);background:var(--brand-bg);padding:2px 8px;border-radius:6px;margin-left:8px}
+.js .rv{opacity:0;transform:translateY(16px);transition:opacity .5s ease-out,transform .5s ease-out}
+.js .rv.in{opacity:1;transform:none}
+.js .steps .rv:nth-child(2){transition-delay:.08s}.js .steps .rv:nth-child(3){transition-delay:.16s}
+.step:hover,.card:hover{border-color:var(--brand)}
+@keyframes heroout{to{opacity:.35;transform:translateY(-14px) scale(.985)}}
+@supports (animation-timeline:view()){.hero .wrap{animation:heroout linear both;animation-timeline:view();animation-range:exit 10% exit 90%}}
+@media (prefers-reduced-motion:reduce){.js .rv{opacity:1;transform:none}.hero .wrap{animation:none!important}}
 </style>
+<script>try{if(window.IntersectionObserver&&!matchMedia("(prefers-reduced-motion:reduce)").matches)document.documentElement.classList.add("js")}catch(e){}</script>
 </head>
 <body>
-<nav><div class="wrap">
+<a class="skip" href="#main">Skip to content</a>
+<nav aria-label="Primary"><div class="wrap">
   <a class="logo" href="#top"><i></i>macos-fleet-matrix</a>
-  <div class="links"><a href="#try" class="hide-s">Try it</a><a href="#install" class="hide-s">Install</a><a class="btn" href="https://github.com/gerardrecinto/macos-fleet-matrix">GitHub</a></div>
+  <div class="links"><a href="#try" class="hide-s">Demo</a><a href="#install" class="hide-s">Run it</a><a class="btn" href="https://github.com/gerardrecinto/macos-fleet-matrix">GitHub</a></div>
 </div></nav>
 
 <header class="hero" id="top"><div class="wrap">
   <h1>A macOS runner that lives for <em>one job</em> and then goes away.</h1>
-  <p class="lede">A reference architecture for ephemeral Apple Silicon CI runners: immutable images, one lease per job, fail-closed expiry. The Python control plane runs here for real. The fleet behind it is simulated, as it is in the repo.</p>
-  <div class="cta"><a class="btn primary" href="#try">Lease a runner</a><a class="btn" href="#install">What exists today</a></div>
-  <div class="stats"><div><b>3</b>languages: Python, Swift, Rust</div><div><b>5</b>clouds in the Terraform modules</div><div><b>0</b>real Macs behind this page</div></div>
+  <p class="lede">This is a design and a working simulation of a control plane that gives each macOS CI job its own short-lived Apple Silicon runner. It is for platform and CI engineers.</p>
+  <div class="cta"><a class="btn primary" href="#try">Try the demo</a><a class="btn" href="#install">Run it locally</a></div>
+  <p class="note">Simulation only. There are no real Macs behind this page.</p>
 </div></header>
-
+<main id="main">
 
 <section id="try"><div class="wrap">
-  <h2>Lease a runner for exactly one job</h2>
-  <p class="sub">The page runs the repo's real <code>Runner</code> and <code>Inventory</code> classes. Pick a runner, lease it, release it, break the rules and read the real errors. There are no Mac minis behind this page, so every runner is a simulated record, as it is in the repo today.</p>
+  <h2>Lease a runner for one job</h2>
+  <p class="plain">A lease is a booking. One job gets one machine for a set time, and nobody else can touch it.</p>
+  <p class="sub">This runs the repo's real Python code in your browser. Lease a runner, release it, then break a rule and read the error.</p>
   <div class="lab">
     <div class="card">
-      <h3><span>Fleet <span class="sim">SIMULATED</span></span><span class="tools"><button class="chip" id="reset">Reset</button></span></h3>
+      <h3><span>Fleet <span class="sim">SIMULATED</span></span><span class="tools"><button class="chip" id="reset" type="button" disabled>Reset</button></span></h3>
       <div class="fleet" id="fleet"><div class="status" id="boot">Loading the control plane...</div></div>
       <div class="ctrl">
         <label for="job">job id</label><input id="job" value="demo-123">
         <label for="ttl">TTL (s)</label><input id="ttl" type="number" value="1800" min="1">
       </div>
       <div class="ctrl">
-        <button class="btn primary" id="acq" type="button">Acquire lease</button>
+        <button class="btn primary" id="acq" disabled type="button">Acquire lease</button>
         <label for="res">result</label><select id="res"><option>success</option><option>failure</option><option>cancelled</option><option>bogus</option></select>
-        <button class="btn" id="rel" type="button">Release</button>
-        <button class="btn" id="qua" type="button">Quarantine</button>
+        <button class="btn" id="rel" disabled type="button">Release</button>
+        <button class="btn" id="qua" disabled type="button">Quarantine</button>
       </div>
       <div class="ctrl">
-        <button class="chip" id="ff">Fast-forward 31 min</button>
-        <button class="chip" id="add">Add runner</button>
-        <button class="chip" id="dup">Add a duplicate</button>
+        <button class="chip" id="ff" type="button" disabled>Fast-forward 31 min</button>
+        <button class="chip" id="add" type="button" disabled>Add runner</button>
+        <button class="chip" id="dup" type="button" disabled>Add a duplicate</button>
       </div>
     </div>
     <div class="card"><h3><span>Operations log</span></h3>
-      <div class="logbox" id="log" aria-live="polite"><div class="status">Select a runner, then acquire a lease. Try leasing it twice.</div></div>
+      <div class="logbox" id="log" role="log" aria-live="polite"><div class="status">Select a runner, then acquire a lease. Try leasing it twice.</div></div>
     </div>
   </div>
-  <p class="note">Fast-forward moves a lease's expiry into the past. The README says the Rust lease reaper quarantines any runner past its expiry. The reaper is not run here, so the page only flags it and you can quarantine by hand.</p>
+  <p class="note">Fast-forward ages a lease past its expiry. The Rust reaper would quarantine it, but the reaper is not run in the browser, so quarantine by hand.</p>
 </div></section>
 
 <section><div class="wrap">
-  <h2>The idea</h2>
-  <p class="sub">macOS CI capacity is expensive and stateful by default. Treat each runner as disposable.</p>
+  <h2>How it works</h2>
+  <p class="plain">Each build gets a clean machine, uses it once, and then it is thrown away.</p>
   <div class="steps">
-    <div class="step"><div class="n">1</div><h3>Immutable image</h3><p>Build a macOS and Xcode image once with Packer. Runners start from that known-good image every time.</p></div>
-    <div class="step"><div class="n">2</div><h3>One lease, one job</h3><p>A runner is leased to exactly one job with a TTL. A release must name the same job, so a stale caller cannot free someone else's runner.</p></div>
-    <div class="step"><div class="n">3</div><h3>Fail closed</h3><p>A lease past its expiry gets quarantined, not reused. The reaper that enforces this is a small Rust program in the repo.</p></div>
+    <div class="step"><div class="n">1</div><h3>Start from one image</h3><p>Every runner boots from the same known-good macOS and Xcode image.</p></div>
+    <div class="step"><div class="n">2</div><h3>One lease, one job</h3><p>A runner is leased to a single job for a set time. Only that job can release it.</p></div>
+    <div class="step"><div class="n">3</div><h3>Expired means quarantined</h3><p>A runner past its lease is pulled out of use, not reused.</p></div>
   </div>
 </div></section>
 
 <section><div class="wrap">
-  <h2>What exists today</h2>
-  <p class="sub">The README separates working code from design. This table follows it.</p>
-  <div class="tw"><table><thead><tr><th>Piece</th><th>Status</th></tr></thead><tbody>
-    <tr><td>Python control plane, inventory and leases</td><td>Working, simulation mode only. No adapter boots a real Tart VM yet. This page runs it.</td></tr>
-    <tr><td>Swift host telemetry probe</td><td>Working. Reads thermal state and memory pressure. Not wired into the scheduler.</td></tr>
-    <tr><td>Rust lease reaper</td><td>Working on an inventory snapshot. Nothing feeds it live inventory yet.</td></tr>
-    <tr><td>Terraform and Terragrunt control-plane modules</td><td>Validated in CI across five clouds. Never applied to a live account from this repo.</td></tr>
-    <tr><td>Argo CD app, Kyverno policies, Spinnaker and Harness pipelines</td><td>Schema-validated in CI. Never run on a live cluster or pipeline server.</td></tr>
-    <tr><td>Image baking, canary promotion, Ansible host role</td><td>Documented design, not exercised end to end.</td></tr>
-  </tbody></table></div>
+  <h2>What is real today</h2>
+  <p class="plain">The booking logic works. The real Mac machines and cloud setup are plans only.</p>
+  <div class="cols2">
+    <div class="step"><h3>Works and is tested</h3><ul>
+      <li>The lease code and CLI you just used.</li>
+      <li>A Swift probe for host heat and memory pressure. It checks that a Mac is not too hot or too full before it gets a job.</li>
+      <li>A Rust reaper that quarantines expired leases. It takes back machines whose time ran out.</li>
+    </ul></div>
+    <div class="step"><h3>Design only</h3><ul>
+      <li>Booting a real VM. No Tart adapter exists yet (Tart runs macOS VMs on Apple Silicon).</li>
+      <li>Image builds and rollout. The Terraform and Kubernetes files pass CI but have never been applied to a live account or cluster. The setup scripts are written and checked, but never switched on. Kyverno is one of those checks, a rule list that blocks unsafe software on the cluster.</li>
+    </ul></div>
+  </div>
 </div></section>
 
 <section id="install" class="install"><div class="wrap">
   <h2>Run it locally</h2>
-  <p class="sub">Python 3.11 or later. Works on a laptop in simulation mode.</p>
+  <p class="sub">Needs Python 3.11 or later. State is saved between commands.</p>
   <div class="cols2">
     <div>
-<pre>python -m venv .venv
+<div class="pre"><pre>git clone https://github.com/gerardrecinto/macos-fleet-matrix
+cd macos-fleet-matrix
+python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
-pytest
-mfm inventory sample</pre>
+pytest</pre></div>
     </div>
     <div>
-<pre>mfm lease acquire --runner m1-01 --job demo-123
+<div class="pre"><pre>mfm inventory sample
+mfm lease acquire --runner m1-01 --job demo-123
 mfm lease release --runner m1-01 \
-  --job demo-123 --result success</pre>
-      <p class="note">Each CLI call starts from a fresh sample inventory, so state does not carry between commands. This page keeps one inventory alive so you can see transitions.</p>
+  --job demo-123 --result success
+mfm metrics</pre></div>
+      <p class="note">State lives in <code>~/.local/state/mfm/state.json</code>. Delete it to start over.</p>
     </div>
   </div>
 </div></section>
 
-<section><div class="wrap">
-  <div class="limits">
-    <strong>What this does not do</strong>
-    <ul>
-      <li>It does not boot a VM. No Tart adapter exists yet, so a lease changes a record, not a machine.</li>
-      <li>A draining runner has no way back to ready in the code today. Destroy and replenish are design, not implemented.</li>
-      <li>The multi-cloud and Kubernetes pieces pass validation but have never been applied to a live account or cluster.</li>
-    </ul>
-  </div>
-</div></section>
 
+
+</main>
 
 <footer><div class="wrap">
   <span>macos-fleet-matrix. MIT licensed. Built by <a href="https://github.com/gerardrecinto">Gerard Recinto</a>.</span>
   <span><a href="https://github.com/gerardrecinto/macos-fleet-matrix">Source</a> &middot; <a href="https://github.com/gerardrecinto/macos-fleet-matrix/releases">Releases</a></span>
 </div></footer>
-<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 <script>
 
 (() => {
@@ -256,9 +294,11 @@ def op(kind, rid, job, ttl, result):
     n++; box.insertAdjacentHTML("afterbegin", `<div class="ln ${o.err ? "err" : ""}"><span class="t">#${n} ${esc(label)}</span>${esc(o.err || o.ok)}</div>`);
   }
   function render() {
+    const hadFocus = document.activeElement && document.activeElement.classList.contains("rn");
     const rs = JSON.parse(py.runPython("snap()"));
     if (!sel || !rs.find((r) => r.id === sel)) sel = rs[0] && rs[0].id;
     $("fleet").innerHTML = rs.map((r) => `<div class="rn" role="button" tabindex="0" data-id="${esc(r.id)}" aria-pressed="${r.id === sel}"><b>${esc(r.id)}</b><small>${esc(r.image)}, ${esc(r.arch)}</small><span class="st ${r.state}">${r.state}</span>${r.state === "leased" && r.left < 0 ? '<span class="flag">PAST EXPIRY</span>' : ""}<small>${r.job ? "job " + esc(r.job) + (r.left != null ? ", " + (r.left < 0 ? "expired " + (-r.left) + "s ago" : r.left + "s left") : "") : ""}</small></div>`).join("");
+    if (hadFocus) { const el = $("fleet").querySelector('.rn[data-id="' + CSS.escape(sel) + '"]'); if (el) el.focus(); }
   }
   $("fleet").addEventListener("click", (e) => { const c = e.target.closest(".rn"); if (c) { sel = c.dataset.id; render(); } });
   $("fleet").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { const c = e.target.closest(".rn"); if (c) { e.preventDefault(); sel = c.dataset.id; render(); } } });
@@ -271,15 +311,38 @@ def op(kind, rid, job, ttl, result):
   $("dup").addEventListener("click", () => act("add", "inventory add", sel));
   $("reset").addEventListener("click", () => { py.runPython("reset()"); $("log").innerHTML = '<div class="status">Fleet reset to the three sample runners.</div>'; n = 0; sel = null; render(); });
 
-  (async () => {
+  if (document.documentElement.classList.contains("js")) {
+    const rv = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); rv.unobserve(e.target); } }), { threshold: 0.12 });
+    document.querySelectorAll("main h2, main .sub, main .card, main .step, main .tw, main .install .cols2, main .limits").forEach((el) => { el.classList.add("rv"); rv.observe(el); });
+  }
+  const PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js";
+  const loadScript = () => new Promise((ok, no) => { const s = document.createElement("script"); s.src = PYODIDE; s.integrity = "sha384-i3R37b3tF+HWudsUf1VSEOY2YxwSNMqY8DQa9Z0O3xh+NkJ9o+yjcGyIi5huj+nB"; s.crossOrigin = "anonymous"; s.onload = ok; s.onerror = () => no(new Error("could not reach the Pyodide CDN")); document.head.appendChild(s); });
+  const boot = async () => {
     try {
+      await loadScript();
       py = await loadPyodide();
       py.FS.mkdirTree("/lib/mfm");
       await Promise.all(FILES.map(async (f) => { const r = await fetch("py/" + f); if (!r.ok) throw new Error("could not load " + f); py.FS.writeFile("/lib/mfm/" + f, await r.text()); }));
       py.runPython("import sys, types; sys.path.insert(0, '/lib'); sys.modules.setdefault('fcntl', types.ModuleType('fcntl'))"); py.runPython(PY); py.runPython("reset()");
-      window.__MFM_READY__ = true; render();
+      document.querySelectorAll("#try button").forEach((b) => { b.disabled = false; }); window.__MFM_READY__ = true; render();
     } catch (e) { $("boot").textContent = "The in-browser control plane did not load (" + (String(e.message || e).trim().split("\n").pop() || "unknown error") + "). The local quickstart below runs the same code."; }
-  })();
+  };
+  let started = false;
+  const start = () => { if (!started) { started = true; boot(); } };
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); start(); } }, { rootMargin: "600px 0px" });
+    io.observe($("try"));
+  } else start();
+
+  document.querySelectorAll(".pre").forEach((box) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "copy"; b.textContent = "Copy"; b.setAttribute("aria-label", "Copy commands");
+    b.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(box.querySelector("pre").textContent); b.textContent = "Copied"; } catch (e) { b.textContent = "Press Ctrl+C"; }
+      setTimeout(() => { b.textContent = "Copy"; }, 1600);
+    });
+    box.appendChild(b);
+  });
 })();
 
 </script>
