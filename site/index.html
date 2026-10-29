@@ -63,6 +63,11 @@ h1 em{font-style:normal;color:var(--brand)}
 @media (max-width:560px){.hero{padding:44px 0 24px}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:28px;font-size:12.5px}.stats b{font-size:20px}}
 section{padding:56px 0}
 h2{font-size:clamp(26px,4vw,36px);margin:0 0 8px;letter-spacing:-.01em}
+.step ul{margin:8px 0 0;padding-left:18px;color:var(--mute);font-size:15px}
+.step ul li+li{margin-top:6px}
+.plain{margin:0 0 14px;color:var(--mute);font-size:14px}
+.plain b{font-weight:600}
+.hero .note{margin-top:20px}
 .sub{color:var(--mute);margin:0 0 28px;max-width:720px}
 .lab{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
 @media (max-width:860px){.lab{grid-template-columns:minmax(0,1fr)}nav .links .hide-s{display:none}}
@@ -71,7 +76,7 @@ h2{font-size:clamp(26px,4vw,36px);margin:0 0 8px;letter-spacing:-.01em}
 .tools{display:flex;gap:6px;flex-wrap:wrap}
 .chip{font:600 12px system-ui;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);cursor:pointer;text-transform:none;letter-spacing:0}
 .chip[aria-pressed=true]{background:var(--brand-bg);border-color:var(--brand);color:var(--brand)}
-#log{display:block;width:100%;height:420px;border:0;padding:12px 14px;font-size:12.5px;line-height:1.55;background:var(--code);color:var(--code-fg);resize:vertical;white-space:pre;overflow:auto}
+#log{min-height:160px}
 .src{display:flex;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--mute);flex-wrap:wrap}
 .out{min-height:420px}
 .status{padding:16px;color:var(--mute);font-size:14px}
@@ -149,22 +154,21 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 <a class="skip" href="#main">Skip to content</a>
 <nav aria-label="Primary"><div class="wrap">
   <a class="logo" href="#top"><i></i>macos-fleet-matrix</a>
-  <div class="links"><a href="#try" class="hide-s">Try it</a><a href="#install" class="hide-s">Install</a><a class="btn" href="https://github.com/gerardrecinto/macos-fleet-matrix">GitHub</a></div>
+  <div class="links"><a href="#try" class="hide-s">Demo</a><a href="#install" class="hide-s">Run it</a><a class="btn" href="https://github.com/gerardrecinto/macos-fleet-matrix">GitHub</a></div>
 </div></nav>
 
 <header class="hero" id="top"><div class="wrap">
-  <p class="who">For platform and CI engineers who run macOS builds</p>
   <h1>A macOS runner that lives for <em>one job</em> and then goes away.</h1>
-  <p class="lede">A reference architecture for ephemeral Apple Silicon CI runners: immutable images, one lease per job, fail-closed expiry. The Python control plane runs here for real. The fleet behind it is simulated, as it is in the repo.</p>
-  <div class="cta"><a class="btn primary" href="#try">Lease a runner</a><a class="btn" href="#install">What exists today</a></div>
-  <div class="stats"><div><b>3</b>languages: Python, Swift, Rust</div><div><b>5</b>clouds in the Terraform modules</div><div><b>0</b>real Macs behind this page</div></div>
+  <p class="lede">This is a design and a working simulation of a control plane that gives each macOS CI job its own short-lived Apple Silicon runner. It is for platform and CI engineers.</p>
+  <div class="cta"><a class="btn primary" href="#try">Try the demo</a><a class="btn" href="#install">Run it locally</a></div>
+  <p class="note">Simulation only. There are no real Macs behind this page.</p>
 </div></header>
 <main id="main">
 
-
 <section id="try"><div class="wrap">
-  <h2>Lease a runner for exactly one job</h2>
-  <p class="sub">The page runs the repo's real <code>Runner</code> and <code>Inventory</code> classes. Pick a runner, lease it, release it, break the rules and read the real errors. There are no Mac minis behind this page, so every runner is a simulated record, as it is in the repo today.</p>
+  <h2>Lease a runner for one job</h2>
+  <p class="plain"><b>Put simply:</b> a lease is a booking. One job gets one machine for a set time, and nobody else can touch it.</p>
+  <p class="sub">This runs the repo's real Python code in your browser. Lease a runner, release it, then break a rule and read the error.</p>
   <div class="lab">
     <div class="card">
       <h3><span>Fleet <span class="sim">SIMULATED</span></span><span class="tools"><button class="chip" id="reset" type="button" disabled>Reset</button></span></h3>
@@ -189,35 +193,38 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
       <div class="logbox" id="log" role="log" aria-live="polite"><div class="status">Select a runner, then acquire a lease. Try leasing it twice.</div></div>
     </div>
   </div>
-  <p class="note">Fast-forward moves a lease's expiry into the past. The README says the Rust lease reaper quarantines any runner past its expiry. The reaper is not run in the browser, so this page only flags it and you can quarantine by hand.</p>
+  <p class="note">Fast-forward ages a lease past its expiry. The Rust reaper would quarantine it, but the reaper is not run in the browser, so quarantine by hand.</p>
 </div></section>
 
 <section><div class="wrap">
-  <h2>The idea</h2>
-  <p class="sub">macOS CI capacity is expensive and stateful by default. Treat each runner as disposable.</p>
+  <h2>How it works</h2>
+  <p class="plain"><b>Put simply:</b> each build gets a clean machine, uses it once, and then it is thrown away.</p>
   <div class="steps">
-    <div class="step"><div class="n">1</div><h3>Immutable image</h3><p>Build a macOS and Xcode image once with Packer. Runners start from that known-good image every time.</p></div>
-    <div class="step"><div class="n">2</div><h3>One lease, one job</h3><p>A runner is leased to exactly one job with a TTL. A release must name the same job, so a stale caller cannot free someone else's runner.</p></div>
-    <div class="step"><div class="n">3</div><h3>Fail closed</h3><p>A lease past its expiry gets quarantined, not reused. The reaper that enforces this is a small Rust program in the repo.</p></div>
+    <div class="step"><div class="n">1</div><h3>Start from one image</h3><p>Every runner boots from the same known-good macOS and Xcode image.</p></div>
+    <div class="step"><div class="n">2</div><h3>One lease, one job</h3><p>A runner is leased to a single job for a set time. Only that job can release it.</p></div>
+    <div class="step"><div class="n">3</div><h3>Expired means quarantined</h3><p>A runner past its lease is pulled out of use, not reused.</p></div>
   </div>
 </div></section>
 
 <section><div class="wrap">
-  <h2>What exists today</h2>
-  <p class="sub">The README separates working code from design. This table follows it.</p>
-  <div class="tw"><table><thead><tr><th>Piece</th><th>Status</th></tr></thead><tbody>
-    <tr><td>Python control plane, inventory and leases</td><td>Working, simulation mode only. No adapter boots a real Tart VM yet. This page runs it.</td></tr>
-    <tr><td>Swift host telemetry probe</td><td>Working. Reads thermal state and memory pressure. <code>mfm lease acquire --health</code> uses its JSON to skip hot or swapping hosts. Nothing runs the probe on real hosts yet.</td></tr>
-    <tr><td>Rust lease reaper</td><td>Working. <code>mfm reap</code> feeds it the saved fleet state. No launchd or systemd unit runs it on a schedule yet.</td></tr>
-    <tr><td>Terraform and Terragrunt control-plane modules</td><td>Validated in CI across five clouds. Never applied to a live account from this repo.</td></tr>
-    <tr><td>Argo CD app, Kyverno policies, Spinnaker and Harness pipelines</td><td>Schema-validated in CI. Never run on a live cluster or pipeline server.</td></tr>
-    <tr><td>Image baking, canary promotion, Ansible host role</td><td>Documented design, not exercised end to end.</td></tr>
-  </tbody></table></div>
+  <h2>What is real today</h2>
+  <p class="plain"><b>Put simply:</b> the booking logic works. The real Mac machines and cloud setup are plans only.</p>
+  <div class="cols2">
+    <div class="step"><h3>Works and is tested</h3><ul>
+      <li>The lease code and CLI you just used.</li>
+      <li>A Swift probe for host heat and memory pressure. Put simply: it checks that a Mac is not too hot or too full before it gets a job.</li>
+      <li>A Rust reaper that quarantines expired leases. Put simply: it takes back machines whose time ran out.</li>
+    </ul></div>
+    <div class="step"><h3>Design only</h3><ul>
+      <li>Booting a real VM. No Tart adapter exists yet (Tart runs macOS VMs on Apple Silicon).</li>
+      <li>Image builds and rollout. The Terraform and Kubernetes files pass CI but have never been applied to a live account or cluster. Put simply: the setup scripts are written and checked, but never switched on. Kyverno is one of those checks, a rule list that blocks unsafe software on the cluster.</li>
+    </ul></div>
+  </div>
 </div></section>
 
 <section id="install" class="install"><div class="wrap">
   <h2>Run it locally</h2>
-  <p class="sub">Python 3.11 or later. Works on a laptop in simulation mode. The CLI saves fleet state between commands.</p>
+  <p class="sub">Needs Python 3.11 or later. State is saved between commands.</p>
   <div class="cols2">
     <div>
 <div class="pre"><pre>git clone https://github.com/gerardrecinto/macos-fleet-matrix
@@ -233,21 +240,12 @@ mfm lease acquire --runner m1-01 --job demo-123
 mfm lease release --runner m1-01 \
   --job demo-123 --result success
 mfm metrics</pre></div>
-      <p class="note">State is saved to <code>~/.local/state/mfm/state.json</code> (or <code>--state FILE</code>, or <code>$MFM_STATE</code>), so the second command sees the lease from the first. Delete that file to start over. <code>mfm inventory sample</code> only prints a sample fleet and touches no state.</p>
+      <p class="note">State lives in <code>~/.local/state/mfm/state.json</code>. Delete it to start over.</p>
     </div>
   </div>
 </div></section>
 
-<section><div class="wrap">
-  <div class="limits">
-    <strong>What this does not do</strong>
-    <ul>
-      <li>It does not boot a VM. No Tart adapter exists yet, so a lease changes a record, not a machine.</li>
-      <li>A draining runner has no way back to ready in the code today. Destroy and replenish are design, not implemented.</li>
-      <li>The multi-cloud and Kubernetes pieces pass validation but have never been applied to a live account or cluster.</li>
-    </ul>
-  </div>
-</div></section>
+
 
 </main>
 
