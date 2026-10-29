@@ -22,3 +22,20 @@ def test_readme_embeds_repository_asset() -> None:
         readme = handle.read()
 
     assert "docs/assets/fleet-lifecycle.svg" in readme
+
+
+def test_site_code_blocks_are_keyboard_scrollable():
+    from html.parser import HTMLParser
+    from pathlib import Path
+
+    class CodeBlocks(HTMLParser):
+        blocks = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "pre":
+                self.blocks.append(dict(attrs))
+
+    parser = CodeBlocks()
+    parser.feed(Path("site/index.html").read_text())
+    assert parser.blocks, "the installation commands must be available without JavaScript"
+    assert all(block.get("tabindex") == "0" for block in parser.blocks)

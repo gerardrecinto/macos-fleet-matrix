@@ -2,7 +2,7 @@
 
 A reference design and working simulation of a control plane that gives each macOS CI job its own short-lived Apple Silicon runner. It is for platform and CI engineers who run macOS builds. No real VM boots from this code yet.
 
-*New here? Each build gets a clean machine, uses it once, and the machine is thrown away.*
+*The intended deployment gives each build a clean machine and destroys it after one use. This repository simulates the booking and cleanup states.*
 
 Live demo in your browser: https://gerardrecinto.github.io/macos-fleet-matrix/
 
@@ -12,13 +12,16 @@ Live demo in your browser: https://gerardrecinto.github.io/macos-fleet-matrix/
 
 ## Try it in 60 seconds
 
-Needs Python 3.11 or later.
+Needs Git, Python 3.11 or later, and Bash or Zsh. On macOS, install Python first if `python3 --version` is unavailable.
 
 ```bash
 git clone https://github.com/gerardrecinto/macos-fleet-matrix
 cd macos-fleet-matrix
-python -m venv .venv && source .venv/bin/activate
-pip install -e '.[dev]' && pytest
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
+pytest
+export MFM_STATE="$(mktemp -d)/state.json"
 mfm lease acquire --runner m1-01 --job demo-123
 mfm lease release --runner m1-01 --job demo-123 --result success
 ```
@@ -30,7 +33,7 @@ leased m1-01 to demo-123
 draining m1-01 after success
 ```
 
-A released runner goes to `draining` and cannot be leased again. Trying gives `mfm: runner m1-01 is not ready` and exit code 2. Fleet state is saved to `~/.local/state/mfm/state.json`, so delete that file to start over. Run `mfm metrics` to see runners by state.
+A released runner goes to `draining` and cannot be leased again. Trying gives `mfm: runner m1-01 is not ready` and exit code 2. The quick start uses a separate temporary state file and leaves your existing fleet untouched. Re-run the `export MFM_STATE=...` line for a fresh demo. Without this override, fleet state is saved to `~/.local/state/mfm/state.json`. Run `mfm metrics` to see runners by state.
 
 ## What works today, and what is design only
 
@@ -206,7 +209,7 @@ docker run --rm mfm:dev inventory sample
 
 The image uses a multi-stage build, an explicit Python package build backend, a minimal Debian runtime, a non-root UID, bytecode compilation, OCI metadata, and a `.dockerignore`. CI builds and smoke-tests the image on every push and pull request.
 
-Release images are published to GHCR from the GitHub release workflow with version tags and provenance attestations. GitHub's Container Registry supports provenance attestations and recommends associating the package with the repository through the `org.opencontainers.image.source` label.
+Release images are published to GHCR from the GitHub release workflow with version tags and provenance attestations. GitHub's Container Registry supports provenance attestations and recommends associating the package with the repository through the `org.opencontainers.image.source` label.
 
 </details>
 
@@ -223,16 +226,16 @@ See [`docs/ARCHITECTURE-ANIMATION.md`](docs/ARCHITECTURE-ANIMATION.md) for the s
 <summary>Design principles</summary>
 
 #### Ephemeral by default
-A runner is leased to one job and then destroyed. Reuse is an exceptional, quarantined path rather than the normal lifecycle.
+The intended deployment destroys a runner after one job. The simulator moves a released runner to `draining`; it has no VM destruction adapter.
 
 #### Public repository, private credentials
 This repository contains no cloud credentials, runner registration tokens, signing keys, or production endpoints. Workload credentials should be short-lived and injected by the CI platform.
 
 #### Fail closed
-A runner that misses a heartbeat, reports an unhealthy guest, or exceeds its lease is removed from scheduling before recovery begins.
+The Rust reaper quarantines expired leases when invoked. A real deployment must also remove hosts that miss heartbeats or report unhealthy guests; those monitors are not implemented.
 
 #### Canary before capacity
-New images enter a canary pool first. Only a healthy canary cohort can replace the current green fleet.
+The proposed image pipeline admits new images to a canary pool before fleet promotion. No canary rollout runs from this repository.
 
 #### Claims are measured, not assumed
 Performance, cost, reliability, and recovery targets in this project are explicit hypotheses until backed by fleet telemetry.

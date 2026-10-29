@@ -5,7 +5,7 @@
 Requires Python 3.11+. Rust (stable) and Swift 5.9+ on macOS are needed only for those parts.
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
 ```
@@ -39,3 +39,5 @@ These come from the README roadmap.
 3. A collector that runs the Swift probe on each host and writes the `--health` file.
 4. Serve `mfm metrics` over HTTP, or add the host probe values to it.
 5. A real Packer template for the image contract in `packer/IMAGE-PIPELINE.md`.
+
+The `quickstart` CI jobs execute the README quick start in an isolated clone and virtual environment on Linux and macOS. Run the same check locally with `python3 scripts/check_quickstart.py`.
