@@ -1,0 +1,38 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-mfm-image-signature
+  annotations:
+    policies.kyverno.io/title: Verify mfm image signature
+    policies.kyverno.io/category: Supply Chain
+    policies.kyverno.io/description: >-
+      Images from ghcr.io/gerardrecinto/macos-fleet-matrix must carry a Cosign
+      keyless signature made by this repository's publish-container workflow.
+      Kyverno also rewrites the tag to the verified digest.
+spec:
+  webhookConfiguration:
+    failurePolicy: Fail
+  rules:
+    - name: verify-cosign-keyless
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/gerardrecinto/macos-fleet-matrix*"
+          # Audit until the first release cut after the Cosign step landed;
+          # images published before it carry a GitHub provenance attestation
+          # but no Cosign signature. Switch to Enforce after that release.
+          failureAction: Audit
+          mutateDigest: true
+          verifyDigest: true
+          required: true
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subjectRegExp: ^https://github\.com/gerardrecinto/macos-fleet-matrix/\.github/workflows/publish-container\.yml@refs/.*$
+                    rekor:
+                      url: https://rekor.sigstore.dev
