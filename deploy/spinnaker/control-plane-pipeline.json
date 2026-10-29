@@ -1,0 +1,331 @@
+{
+  "application": "macosfleetmatrix",
+  "name": "deploy-control-plane",
+  "description": "Verify the signed control-plane image, deploy it to ACK staging, wait for a manual judgment, then deploy to OpenShift prod. A failed prod smoke check fails the run; roll back by re-running with the last good digest.",
+  "keepWaitingPipelines": false,
+  "limitConcurrent": true,
+  "stages": [
+    {
+      "refId": "verify",
+      "requisiteStageRefIds": [],
+      "type": "runJobManifest",
+      "name": "Verify Cosign signature and Trivy scan",
+      "account": "ack-staging",
+      "alias": "runJob",
+      "cloudProvider": "kubernetes",
+      "source": "text",
+      "consumeArtifactSource": "none",
+      "manifest": {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+          "generateName": "mfm-verify-",
+          "namespace": "mfm-control-plane"
+        },
+        "spec": {
+          "backoffLimit": 0,
+          "activeDeadlineSeconds": 300,
+          "template": {
+            "spec": {
+              "restartPolicy": "Never",
+              "securityContext": {
+                "runAsNonRoot": true,
+                "seccompProfile": {
+                  "type": "RuntimeDefault"
+                }
+              },
+              "containers": [
+                {
+                  "name": "cosign",
+                  "image": "gcr.io/projectsigstore/cosign:v2.4.1",
+                  "args": [
+                    "verify",
+                    "--certificate-oidc-issuer=https://token.actions.githubusercontent.com",
+                    "--certificate-identity-regexp=^https://github\\.com/gerardrecinto/macos-fleet-matrix/\\.github/workflows/publish-container\\.yml@refs/.*$",
+                    "ghcr.io/gerardrecinto/macos-fleet-matrix@${parameters.digest}"
+                  ],
+                  "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "readOnlyRootFilesystem": true,
+                    "capabilities": {
+                      "drop": [
+                        "ALL"
+                      ]
+                    }
+                  },
+                  "resources": {
+                    "requests": {
+                      "cpu": "50m",
+                      "memory": "64Mi"
+                    },
+                    "limits": {
+                      "memory": "128Mi"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "propagateCleanup": true
+    },
+    {
+      "refId": "bake-staging",
+      "requisiteStageRefIds": [
+        "verify"
+      ],
+      "type": "bakeManifest",
+      "name": "Bake staging manifests",
+      "templateRenderer": "KUSTOMIZE",
+      "kustomizeFilePath": "deploy/k8s/control-plane/kustomization.yaml",
+      "inputArtifact": {
+        "account": "github",
+        "artifact": {
+          "type": "github/file",
+          "reference": "https://api.github.com/repos/gerardrecinto/macos-fleet-matrix/contents/deploy/k8s/control-plane/kustomization.yaml",
+          "artifactAccount": "github",
+          "version": "main"
+        }
+      },
+      "outputName": "mfm-control-plane",
+      "namespace": "mfm-control-plane",
+      "expectedArtifacts": [
+        {
+          "id": "baked-deploy-staging",
+          "displayName": "mfm-control-plane",
+          "matchArtifact": {
+            "type": "embedded/base64",
+            "name": "mfm-control-plane"
+          },
+          "useDefaultArtifact": false
+        }
+      ]
+    },
+    {
+      "refId": "deploy-staging",
+      "requisiteStageRefIds": [
+        "bake-staging"
+      ],
+      "type": "deployManifest",
+      "name": "Deploy to ACK staging",
+      "account": "ack-staging",
+      "cloudProvider": "kubernetes",
+      "source": "artifact",
+      "manifestArtifactId": "baked-deploy-staging",
+      "manifestArtifactAccount": "embedded-artifact",
+      "moniker": {
+        "app": "macosfleetmatrix"
+      },
+      "requiredArtifactIds": [],
+      "skipExpressionEvaluation": false,
+      "trafficManagement": {
+        "enabled": false
+      }
+    },
+    {
+      "refId": "smoke-staging",
+      "requisiteStageRefIds": [
+        "deploy-staging"
+      ],
+      "type": "runJobManifest",
+      "name": "Smoke check on staging",
+      "account": "ack-staging",
+      "cloudProvider": "kubernetes",
+      "source": "text",
+      "consumeArtifactSource": "none",
+      "manifest": {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+          "generateName": "mfm-smoke-",
+          "namespace": "mfm-control-plane"
+        },
+        "spec": {
+          "backoffLimit": 0,
+          "activeDeadlineSeconds": 120,
+          "template": {
+            "spec": {
+              "restartPolicy": "Never",
+              "securityContext": {
+                "runAsNonRoot": true,
+                "seccompProfile": {
+                  "type": "RuntimeDefault"
+                }
+              },
+              "containers": [
+                {
+                  "name": "mfm",
+                  "image": "ghcr.io/gerardrecinto/macos-fleet-matrix@${parameters.digest}",
+                  "args": [
+                    "inventory",
+                    "sample"
+                  ],
+                  "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "readOnlyRootFilesystem": true,
+                    "capabilities": {
+                      "drop": [
+                        "ALL"
+                      ]
+                    }
+                  },
+                  "resources": {
+                    "requests": {
+                      "cpu": "50m",
+                      "memory": "64Mi"
+                    },
+                    "limits": {
+                      "memory": "128Mi"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "propagateCleanup": true
+    },
+    {
+      "refId": "approve-prod",
+      "requisiteStageRefIds": [
+        "smoke-staging"
+      ],
+      "type": "manualJudgment",
+      "name": "Approve prod",
+      "instructions": "Staging deployed and the smoke check passed. Promote this digest to OpenShift prod?",
+      "judgmentInputs": [],
+      "failPipeline": true
+    },
+    {
+      "refId": "bake-prod",
+      "requisiteStageRefIds": [
+        "approve-prod"
+      ],
+      "type": "bakeManifest",
+      "name": "Bake OpenShift manifests",
+      "templateRenderer": "KUSTOMIZE",
+      "kustomizeFilePath": "deploy/k8s/overlays/openshift/kustomization.yaml",
+      "inputArtifact": {
+        "account": "github",
+        "artifact": {
+          "type": "github/file",
+          "reference": "https://api.github.com/repos/gerardrecinto/macos-fleet-matrix/contents/deploy/k8s/overlays/openshift/kustomization.yaml",
+          "artifactAccount": "github",
+          "version": "main"
+        }
+      },
+      "outputName": "mfm-control-plane",
+      "namespace": "mfm-control-plane",
+      "expectedArtifacts": [
+        {
+          "id": "baked-deploy-prod",
+          "displayName": "mfm-control-plane-openshift",
+          "matchArtifact": {
+            "type": "embedded/base64",
+            "name": "mfm-control-plane"
+          },
+          "useDefaultArtifact": false
+        }
+      ]
+    },
+    {
+      "refId": "deploy-prod",
+      "requisiteStageRefIds": [
+        "bake-prod"
+      ],
+      "type": "deployManifest",
+      "name": "Deploy to OpenShift prod",
+      "account": "openshift-prod",
+      "cloudProvider": "kubernetes",
+      "source": "artifact",
+      "manifestArtifactId": "baked-deploy-prod",
+      "manifestArtifactAccount": "embedded-artifact",
+      "moniker": {
+        "app": "macosfleetmatrix"
+      },
+      "requiredArtifactIds": [],
+      "skipExpressionEvaluation": false,
+      "trafficManagement": {
+        "enabled": false
+      }
+    },
+    {
+      "refId": "smoke-prod",
+      "requisiteStageRefIds": [
+        "deploy-prod"
+      ],
+      "type": "runJobManifest",
+      "name": "Smoke check on prod",
+      "account": "openshift-prod",
+      "cloudProvider": "kubernetes",
+      "source": "text",
+      "consumeArtifactSource": "none",
+      "manifest": {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+          "generateName": "mfm-smoke-prod-",
+          "namespace": "mfm-control-plane"
+        },
+        "spec": {
+          "backoffLimit": 0,
+          "activeDeadlineSeconds": 120,
+          "template": {
+            "spec": {
+              "restartPolicy": "Never",
+              "securityContext": {
+                "runAsNonRoot": true,
+                "seccompProfile": {
+                  "type": "RuntimeDefault"
+                }
+              },
+              "containers": [
+                {
+                  "name": "mfm",
+                  "image": "ghcr.io/gerardrecinto/macos-fleet-matrix@${parameters.digest}",
+                  "args": [
+                    "inventory",
+                    "sample"
+                  ],
+                  "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "readOnlyRootFilesystem": true,
+                    "capabilities": {
+                      "drop": [
+                        "ALL"
+                      ]
+                    }
+                  },
+                  "resources": {
+                    "requests": {
+                      "cpu": "50m",
+                      "memory": "64Mi"
+                    },
+                    "limits": {
+                      "memory": "128Mi"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "propagateCleanup": true
+    }
+  ],
+  "parameterConfig": [
+    {
+      "name": "digest",
+      "label": "Image digest",
+      "description": "sha256 digest of the ghcr.io/gerardrecinto/macos-fleet-matrix image to promote",
+      "required": true,
+      "default": "",
+      "hasOptions": false,
+      "options": []
+    }
+  ],
+  "triggers": []
+}
