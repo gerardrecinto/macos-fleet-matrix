@@ -210,7 +210,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d
+      - uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e
         with:
           version: v1.31.0
       - name: Install Kyverno CLI
@@ -234,7 +234,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d
+      - uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e
         with:
           version: v1.31.0
       - name: Install kubeconform
