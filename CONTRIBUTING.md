@@ -5,7 +5,7 @@
 Requires Python 3.11+. Rust (stable) and Swift 5.9+ on macOS are needed only for those parts.
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
 ```
@@ -41,3 +41,19 @@ These come from the README roadmap.
 4. Serve `mfm metrics` over HTTP, or add the host probe values to it.
 5. A real Packer template for the image contract in `packer/IMAGE-PIPELINE.md`.
 6. Save the pipelines in `deploy/spinnaker/` to a real Spinnaker with `spin pipeline save` and report what it rejects.
+
+The `quickstart` CI jobs execute the README quick start in an isolated clone and virtual environment on Linux and macOS. Run the same check locally with `python3 scripts/check_quickstart.py`.
+
+## Site behavior checks
+
+The site loads Python only after an explicit demo start. These browser tests use the real pinned Pyodide CDN runtime, not a substitute lease engine, so the activation cases need an internet connection.
+
+```bash
+npm ci --ignore-scripts
+npx playwright install chromium firefox webkit
+npm run test:site
+SITE_BROWSER=firefox npm run test:site
+SITE_BROWSER=webkit npm run test:site
+```
+
+CI runs all three engines. It checks desktop/mobile navigation without Python downloads, keyboard activation, real acquire/release and duplicate-lease rejection, blocked-network retry, and the JavaScript-disabled local fallback.

@@ -24,12 +24,28 @@ class HostHealth:
 
     @classmethod
     def from_probe(cls, doc: dict) -> HostHealth:
-        thermal = str(doc.get("thermalState", "unknown")).lower()
-        memory = doc.get("memory") or {}
+        if not isinstance(doc, dict):
+            raise ValueError("host health must be a JSON object")
+        thermal = doc.get("thermalState", "unknown")
+        if not isinstance(thermal, str) or thermal.lower() not in {
+            *_THERMAL_RANK, *_REFUSED_THERMAL,
+        }:
+            raise ValueError("thermalState must be nominal, fair, serious, critical, or unknown")
+        memory = doc.get("memory", {})
+        if not isinstance(memory, dict):
+            raise ValueError("memory must be a JSON object")
+        counters = {}
+        for name in ("swapUsedBytes", "swapTotalBytes"):
+            value = memory.get(name, 0)
+            if type(value) is not int or value < 0:
+                raise ValueError(f"{name} must be a non-negative integer")
+            counters[name] = value
+        if counters["swapUsedBytes"] > counters["swapTotalBytes"]:
+            raise ValueError("swapUsedBytes cannot exceed swapTotalBytes")
         return cls(
-            thermal_state=thermal,
-            swap_used_bytes=int(memory.get("swapUsedBytes", 0)),
-            swap_total_bytes=int(memory.get("swapTotalBytes", 0)),
+            thermal_state=thermal.lower(),
+            swap_used_bytes=counters["swapUsedBytes"],
+            swap_total_bytes=counters["swapTotalBytes"],
         )
 
     def refusal(self) -> str | None:

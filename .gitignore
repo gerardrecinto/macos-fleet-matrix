@@ -10,3 +10,4 @@ target/
 *.tfstate.*
 crash.log
 .terragrunt-cache/
+node_modules/
