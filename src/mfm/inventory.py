@@ -12,6 +12,10 @@ from .health import NO_TELEMETRY_RANK, HostHealth
 from .model import Runner, RunnerState
 
 
+class StateFileError(ValueError):
+    """The saved state file exists but cannot be read as a fleet."""
+
+
 class Inventory:
     def __init__(self, runners: list[Runner] | None = None) -> None:
         self._runners = {r.runner_id: r for r in (runners or [])}
@@ -86,6 +90,11 @@ class Inventory:
             inventory = cls()
             inventory.sample()
             return inventory
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            raise StateFileError(
+                f"state file {path} is not valid fleet state ({type(exc).__name__}). "
+                "Move it aside or delete it to start again from the sample fleet."
+            ) from exc
 
     @classmethod
     @contextmanager

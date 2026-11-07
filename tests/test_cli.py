@@ -94,3 +94,16 @@ def test_metrics_reports_negative_for_overdue_lease():
     inv.get("m1-01").lease("j", 10)
     text = render_metrics(inv, inv.get("m1-01").lease_expires_at + 5)
     assert 'mfm_lease_seconds_until_expiry{runner="m1-01"} -5' in text
+
+
+@pytest.mark.parametrize("content", ["", '{"runners": [', '{"a": 1}', "[1]", '[{"id": "x"}]'])
+def test_unreadable_state_file_names_the_file_and_the_fix(monkeypatch, capsys, tmp_path, content):
+    state = tmp_path / "state.json"
+    state.write_text(content, encoding="utf-8")
+
+    code, _, err = run_cli(monkeypatch, capsys, state, "metrics")
+
+    assert code == 2
+    assert str(state) in err
+    assert "Move it aside or delete it" in err
+    assert "Traceback" not in err
