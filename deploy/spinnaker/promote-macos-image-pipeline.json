@@ -1,0 +1,98 @@
+{
+  "application": "macosfleetmatrix",
+  "name": "promote-macos-image",
+  "description": "Promote a macOS and Xcode runner image: build, canary, green, blue/green. The canary gate fails the pipeline unless every check passes, so nothing past it runs. To roll back, run rollback-macos-image with the last known-good digest.",
+  "keepWaitingPipelines": false,
+  "limitConcurrent": true,
+  "parameterConfig": [
+    {
+      "name": "imageDigest",
+      "label": "Image digest",
+      "description": "Content digest of the candidate image",
+      "required": true,
+      "default": "",
+      "hasOptions": false,
+      "options": []
+    },
+    {
+      "name": "promotionApiUrl",
+      "label": "Promotion API URL",
+      "description": "HTTP endpoint that performs each action named in the stage payload. This repository does not ship one.",
+      "required": true,
+      "default": "",
+      "hasOptions": false,
+      "options": []
+    }
+  ],
+  "triggers": [],
+  "stages": [
+    {
+      "refId": "build",
+      "requisiteStageRefIds": [],
+      "type": "webhook",
+      "name": "Publish image manifest",
+      "url": "${parameters.promotionApiUrl}",
+      "method": "POST",
+      "payload": {
+        "action": "publish-manifest",
+        "imageDigest": "${parameters.imageDigest}",
+        "manifestFields": [
+          "image name and content digest",
+          "macOS version",
+          "Xcode version",
+          "runner bootstrap version",
+          "SBOM or provenance reference",
+          "smoke-test results"
+        ]
+      },
+      "failPipeline": true
+    },
+    {
+      "refId": "canary",
+      "requisiteStageRefIds": ["build"],
+      "type": "webhook",
+      "name": "Canary gate",
+      "url": "${parameters.promotionApiUrl}",
+      "method": "POST",
+      "payload": {
+        "action": "canary",
+        "imageDigest": "${parameters.imageDigest}",
+        "requiredChecks": [
+          "runner boot",
+          "runner registration",
+          "lease acquisition",
+          "representative Xcode build",
+          "telemetry health",
+          "clean teardown"
+        ]
+      },
+      "failPipeline": true
+    },
+    {
+      "refId": "green",
+      "requisiteStageRefIds": ["canary"],
+      "type": "webhook",
+      "name": "Promote to green",
+      "url": "${parameters.promotionApiUrl}",
+      "method": "POST",
+      "payload": {
+        "action": "promote-green",
+        "imageDigest": "${parameters.imageDigest}"
+      },
+      "failPipeline": true
+    },
+    {
+      "refId": "blue-green",
+      "requisiteStageRefIds": ["green"],
+      "type": "webhook",
+      "name": "Blue/green cutover",
+      "url": "${parameters.promotionApiUrl}",
+      "method": "POST",
+      "payload": {
+        "action": "blue-green",
+        "imageDigest": "${parameters.imageDigest}"
+      },
+      "failPipeline": true
+    }
+  ]
+}

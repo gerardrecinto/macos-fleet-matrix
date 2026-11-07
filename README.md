@@ -43,12 +43,14 @@ Works and is tested:
 - Python CLI for leases, with state saved between commands: `mfm inventory`, `lease acquire`, `lease release`, `metrics`, `reap`.
 - Swift probe that reads thermal state and memory pressure. `mfm lease acquire --health` skips hot or swapping hosts.
 - Rust lease reaper that quarantines any runner past its lease expiry.
+- Opt-in Tart backend (`mfm lease acquire --backend tart`, add `--dry-run` to print the exact `tart` commands without running them). It is tested against a fake `tart` program. A gated test for real Tart exists and has not been run by the author.
+- Three Spinnaker pipeline definitions in `deploy/spinnaker/` (control-plane deploy, image promotion, rollback) with `mfm pipeline validate`. They are checked structurally in CI and have never been saved to or run on a live Spinnaker.
 - Container image for the Linux control plane.
 - Terraform, Terragrunt, Kubernetes, Argo CD and Kyverno files, checked by CI only. None has been applied to a live account or cluster.
 
 Design only, not built:
-- Booting a real VM through Tart (a tool for running macOS VMs on Apple Silicon).
-- Packer image builds (Packer builds machine images from a script), Xcode switching, Spinnaker image promotion, the Ansible host role.
+- Booting a real VM through Tart (a tool for running macOS VMs on Apple Silicon) in CI or on a real host. The backend exists but has only been tested against a fake `tart`.
+- Packer image builds (Packer builds machine images from a script), Xcode switching, running the Spinnaker pipelines on a live Spinnaker, the Ansible host role.
 - Collecting host telemetry live, OpenTelemetry export, a scheduled reaper on a real host.
 
 The full list is in the Roadmap below.
