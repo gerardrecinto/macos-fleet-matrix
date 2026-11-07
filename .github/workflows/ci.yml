@@ -120,7 +120,7 @@ jobs:
         working-directory: terraform/control-plane/modules/${{ matrix.provider }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
         with:
           terraform_wrapper: false
       - run: terraform fmt -check
@@ -138,7 +138,7 @@ jobs:
         working-directory: terraform/control-plane/live/${{ matrix.provider }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
         with:
           terraform_wrapper: false
       - name: Install Terragrunt
@@ -160,7 +160,7 @@ jobs:
         working-directory: terraform/kubernetes/modules/${{ matrix.platform }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
         with:
           terraform_wrapper: false
       - run: terraform fmt -check
@@ -178,7 +178,7 @@ jobs:
         working-directory: terraform/kubernetes/live/${{ matrix.platform }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
         with:
           terraform_wrapper: false
       - name: Install Terragrunt
