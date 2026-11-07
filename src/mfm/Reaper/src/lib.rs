@@ -28,6 +28,12 @@ pub struct Runner {
     pub job_id: Option<String>,
     #[serde(default)]
     pub lease_expires_at: Option<f64>,
+    // Written by the Python Tart backend. Carried through untouched so a sweep
+    // does not erase which VM still needs tearing down.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vm_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vm_ip: Option<String>,
 }
 
 fn default_arch() -> String {
@@ -85,6 +91,8 @@ mod tests {
             state: RunnerState::Leased,
             job_id: Some("job-1".to_string()),
             lease_expires_at: expires_at,
+            vm_name: None,
+            vm_ip: None,
         }
     }
 
@@ -134,6 +142,8 @@ mod tests {
                 state,
                 job_id: None,
                 lease_expires_at: Some(0.0),
+                vm_name: None,
+                vm_ip: None,
             };
             assert_eq!(reap_one(&mut runner, 1_000_000.0), ReapAction::Unchanged);
             assert_eq!(runner.state, state);
@@ -151,6 +161,8 @@ mod tests {
                 state: RunnerState::Ready,
                 job_id: None,
                 lease_expires_at: None,
+                vm_name: None,
+                vm_ip: None,
             },
             leased("m1-03", Some(400.0)),
             leased("m1-04", Some(50.0)),
@@ -178,5 +190,17 @@ mod tests {
         let round_tripped: Runner = serde_json::from_str(&serialized).expect("round trip");
         assert_eq!(round_tripped.runner_id, runner.runner_id);
         assert_eq!(round_tripped.state, runner.state);
+    }
+
+    #[test]
+    fn vm_fields_survive_a_sweep() {
+        let mut runner = leased("m1-01", Some(100.0));
+        runner.vm_name = Some("mfm-m1-01-job-1".to_string());
+        runner.vm_ip = Some("192.168.64.5".to_string());
+        reap_one(&mut runner, 200.0);
+        let json = serde_json::to_string(&runner).expect("serializable runner");
+        assert!(json.contains("mfm-m1-01-job-1") && json.contains("192.168.64.5"));
+        let plain = serde_json::to_string(&leased("m1-02", None)).expect("serializable runner");
+        assert!(!plain.contains("vm_name"));
     }
 }

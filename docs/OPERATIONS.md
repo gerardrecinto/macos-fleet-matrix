@@ -5,7 +5,7 @@
 1. Stop scheduling the runner immediately.
 2. Record the lease ID and last heartbeat.
 3. Attempt graceful guest shutdown only if the workload identity is still responsive.
-4. Otherwise destroy the Tart VM and mark the runner `quarantined`.
+4. Otherwise destroy the Tart VM and mark the runner `quarantined`. With `--backend tart`, `mfm reap` does this for expired leases and retries it on later sweeps if the delete failed; a quarantined runner that still shows a `vm_name` in `mfm inventory list` has a VM that was not removed. See `docs/TART.md`.
 5. Recreate from the current promoted image.
 6. Compare the new runner's health and job outcome with the canary baseline.
 

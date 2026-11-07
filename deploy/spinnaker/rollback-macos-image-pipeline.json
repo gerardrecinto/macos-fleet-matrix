@@ -1,0 +1,43 @@
+{
+  "application": "macosfleetmatrix",
+  "name": "rollback-macos-image",
+  "description": "Point the fleet back at the last known-good immutable image digest.",
+  "keepWaitingPipelines": false,
+  "limitConcurrent": true,
+  "parameterConfig": [
+    {
+      "name": "lastKnownGoodDigest",
+      "label": "Last known-good digest",
+      "description": "Content digest of the last image that passed every canary gate",
+      "required": true,
+      "default": "",
+      "hasOptions": false,
+      "options": []
+    },
+    {
+      "name": "promotionApiUrl",
+      "label": "Promotion API URL",
+      "description": "HTTP endpoint that performs each action named in the stage payload. This repository does not ship one.",
+      "required": true,
+      "default": "",
+      "hasOptions": false,
+      "options": []
+    }
+  ],
+  "triggers": [],
+  "stages": [
+    {
+      "refId": "rollback",
+      "requisiteStageRefIds": [],
+      "type": "webhook",
+      "name": "Roll back to last known-good digest",
+      "url": "${parameters.promotionApiUrl}",
+      "method": "POST",
+      "payload": {
+        "action": "rollback",
+        "imageDigest": "${parameters.lastKnownGoodDigest}"
+      },
+      "failPipeline": true
+    }
+  ]
+}

@@ -5,7 +5,7 @@
 Requires Python 3.11+. Rust (stable) and Swift 5.9+ on macOS are needed only for those parts.
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
 ```
@@ -15,6 +15,7 @@ pip install -e '.[dev]'
 ```bash
 ruff check .
 pytest
+mfm pipeline validate deploy/spinnaker/*.json
 cd src/mfm/Reaper && cargo fmt -- --check && cargo clippy --all-targets -- -D warnings && cargo test
 swift test   # macOS only
 ```
@@ -34,8 +35,25 @@ Keep the README honest: if something is design only, say so in the status table.
 
 These come from the README roadmap.
 
-1. A Tart adapter that boots and destroys a real VM behind the existing lease commands.
+1. Run `tests/test_tart_e2e.py` on a Mac with real Tart (`MFM_TART_E2E=1`) and report what happens.
 2. A launchd unit (and a systemd unit) that runs `mfm reap` on a host.
 3. A collector that runs the Swift probe on each host and writes the `--health` file.
 4. Serve `mfm metrics` over HTTP, or add the host probe values to it.
 5. A real Packer template for the image contract in `packer/IMAGE-PIPELINE.md`.
+6. Save the pipelines in `deploy/spinnaker/` to a real Spinnaker with `spin pipeline save` and report what it rejects.
+
+The `quickstart` CI jobs execute the README quick start in an isolated clone and virtual environment on Linux and macOS. Run the same check locally with `python3 scripts/check_quickstart.py`.
+
+## Site behavior checks
+
+The site loads Python only after an explicit demo start. These browser tests use the real pinned Pyodide CDN runtime, not a substitute lease engine, so the activation cases need an internet connection.
+
+```bash
+npm ci --ignore-scripts
+npx playwright install chromium firefox webkit
+npm run test:site
+SITE_BROWSER=firefox npm run test:site
+SITE_BROWSER=webkit npm run test:site
+```
+
+CI runs all three engines. It checks desktop/mobile navigation without Python downloads, keyboard activation, real acquire/release and duplicate-lease rejection, blocked-network retry, and the JavaScript-disabled local fallback.

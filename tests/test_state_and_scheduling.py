@@ -121,3 +121,42 @@ def test_version_flag(monkeypatch, capsys):
     with pytest.raises(SystemExit) as exc:
         main()
     assert exc.value.code == 0 and capsys.readouterr().out.startswith("mfm ")
+
+
+@pytest.mark.parametrize("entry", [
+    None, [], 1,
+    {"thermalState": "typo"},
+    {"thermalState": None},
+    {"memory": None},
+    {"memory": []},
+    {"memory": {"swapUsedBytes": -1}},
+    {"memory": {"swapTotalBytes": -1}},
+    {"memory": {"swapUsedBytes": True}},
+    {"memory": {"swapUsedBytes": 0.5}},
+    {"memory": {"swapUsedBytes": "1"}},
+    {"memory": {"swapUsedBytes": 1, "swapTotalBytes": 0}},
+    {"memory": {"swapUsedBytes": 1001, "swapTotalBytes": 1000}},
+])
+def test_invalid_health_refuses_lease_without_mutating_state(
+    tmp_path, monkeypatch, capsys, entry,
+):
+    state = tmp_path / "state.json"
+    inventory = Inventory()
+    inventory.sample()
+    inventory.save(str(state))
+    original = state.read_bytes()
+    hf = tmp_path / "health.json"
+    hf.write_text(json.dumps({"m1-01": entry}))
+    code, out, err = run_cli(
+        monkeypatch, capsys, state, "lease", "acquire", "--job", "j", "--health", str(hf),
+    )
+    assert code == 2
+    assert out == "" and err.startswith("mfm: ") and "Traceback" not in err
+    assert state.read_bytes() == original
+
+
+def test_zero_swap_capacity_and_case_insensitive_thermal_are_valid():
+    host = parse_health({"a": {"thermalState": "NOMINAL", "memory": {
+        "swapUsedBytes": 0, "swapTotalBytes": 0,
+    }}})["a"]
+    assert host.thermal_state == "nominal" and host.refusal() is None
