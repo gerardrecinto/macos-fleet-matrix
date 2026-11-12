@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: fleet-status
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - service.yaml
+
+configMapGenerator:
+  - name: fleet-state
+    files:
+      - state.json
+
+images:
+  - name: fleet-status
+    newName: ghcr.io/gerardrecinto/fleet-status
+    newTag: "0.1.0"

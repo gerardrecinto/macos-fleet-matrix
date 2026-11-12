@@ -80,7 +80,43 @@ macOS CI capacity is expensive and stateful by default. This project treats each
 7. Replenish capacity from the known-good image.
 
 The repository is intentionally useful on a laptop in simulation mode while preserving clear seams for a real Apple Silicon fleet.
-#### Architecture
+#### Spring Boot on AliCloud ACK and OpenStack Magnum
+
+`services/fleet-status` is a Spring Boot 3 service that reads the state file `mfm` saves and answers `GET /api/runners`, `GET /api/summary` (counts per state, plus leases past their expiry that the reaper has not taken back) and `/actuator/health`. Readiness goes down if the state file is missing or malformed, so a bad mount fails the rollout instead of serving errors.
+
+Run the checks yourself (needs Docker, kind and kubectl; about one minute after the first image pull):
+
+```bash
+./scripts/verify_fleet_status.sh
+```
+
+Output from a real run:
+
+```
+summary: {"total":3,"byState":{"ready":1,"leased":2,"draining":0,"quarantined":0,"destroyed":0},"leasesPastExpiry":1}
+pods during bad rollout:
+  fleet-status-5fdd74fd49-bgpjf 1/1 Running
+  fleet-status-5fdd74fd49-pr2qt 1/1 Running
+  fleet-status-855c769fb7-5nc4v 0/1 ErrImagePull
+api during bad rollout: HTTP 200
+OK
+```
+
+A bad image tag stalls the rollout and the two old pods keep serving (`maxUnavailable: 0`); `rollout undo` clears it.
+
+Cloud differences are two Kustomize overlays in `deploy/k8s/fleet-status/overlays/`:
+
+| | `alicloud-ack` | `openstack-magnum` |
+|---|---|---|
+| Load balancer | SLB, internal, `slb.s1.small` | Octavia, internal |
+| Annotations | `service.beta.kubernetes.io/alibaba-cloud-loadbalancer-*` | `service.beta.kubernetes.io/openstack-internal-load-balancer` |
+| Image | Alibaba Cloud Container Registry (`registry.cn-hangzhou.aliyuncs.com/fleet-matrix/fleet-status`) | private registry (`registry.example.internal/...`, change it) |
+
+What is verified: 5 JUnit tests, the jar run with `curl`, the container image built and Trivy-scanned in CI, all three manifests rendered and schema-checked with kubeconform, and the base deployed on a local kind cluster under a `restricted` Pod Security namespace.
+
+What is not: **nothing here has been deployed to a real AliCloud or OpenStack account.** The overlays are rendered and schema-valid, but the SLB and Octavia annotations, the ACR pull and the image registry names have not been exercised on a live cluster. The ACK cluster comes from `terraform/kubernetes/modules/ack`, which is validated in CI and never applied (see Known limitations). The sample state file is the output of `mfm lease acquire` on a laptop, not a real fleet.
+
+## Architecture
 ```text
 GitHub Actions / Buildkite
           |

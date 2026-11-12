@@ -11,3 +11,4 @@ target/
 crash.log
 .terragrunt-cache/
 node_modules/
+services/fleet-status/target/

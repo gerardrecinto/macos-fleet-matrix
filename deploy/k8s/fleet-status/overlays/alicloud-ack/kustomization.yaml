@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# ACK: an internal SLB in front of the Service, image from Alibaba Cloud Container Registry (ACR).
+resources:
+  - ../../base
+
+images:
+  - name: ghcr.io/gerardrecinto/fleet-status
+    newName: registry.cn-hangzhou.aliyuncs.com/fleet-matrix/fleet-status
+    newTag: "0.1.0"
+
+patches:
+  - target:
+      kind: Service
+      name: fleet-status
+    patch: |-
+      - op: replace
+        path: /spec/type
+        value: LoadBalancer
+      - op: add
+        path: /metadata/annotations
+        value:
+          service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: intranet
+          service.beta.kubernetes.io/alibaba-cloud-loadbalancer-spec: slb.s1.small

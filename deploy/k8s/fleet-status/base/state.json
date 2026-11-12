@@ -1,0 +1,32 @@
+[
+  {
+    "runner_id": "m1-01",
+    "image": "macos-15-xcode-16",
+    "arch": "arm64",
+    "state": "leased",
+    "job_id": "demo-1",
+    "lease_expires_at": 4102444800.0,
+    "vm_name": null,
+    "vm_ip": null
+  },
+  {
+    "runner_id": "m1-02",
+    "image": "macos-15-xcode-16",
+    "arch": "arm64",
+    "state": "leased",
+    "job_id": "demo-2",
+    "lease_expires_at": 1.0,
+    "vm_name": null,
+    "vm_ip": null
+  },
+  {
+    "runner_id": "m1-03",
+    "image": "macos-15-xcode-16",
+    "arch": "arm64",
+    "state": "ready",
+    "job_id": null,
+    "lease_expires_at": null,
+    "vm_name": null,
+    "vm_ip": null
+  }
+]
