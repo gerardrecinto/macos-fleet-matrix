@@ -284,3 +284,36 @@ jobs:
             echo 'Potential credential material found.'
             exit 1
           fi
+
+  fleet-status:
+    name: Spring Boot fleet-status (tests, image, manifests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: services/fleet-status/pom.xml
+      - name: Unit tests
+        run: mvn -q -B verify
+        working-directory: services/fleet-status
+      - name: Build image
+        run: docker build --tag fleet-status:test services/fleet-status
+      - name: Trivy scan fleet-status image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          image-ref: fleet-status:test
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Render the base and both cloud overlays and check them against the Kubernetes schemas
+        run: |
+          curl -sL -o kc.tgz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          echo "95f14e87aa28c09d5941f11bd024c1d02fdc0303ccaa23f61cef67bc92619d73  kc.tgz" | sha256sum -c -
+          tar xzf kc.tgz kubeconform
+          for o in base overlays/alicloud-ack overlays/openstack-magnum; do
+            kubectl kustomize deploy/k8s/fleet-status/$o | ./kubeconform -strict -summary -
+          done
