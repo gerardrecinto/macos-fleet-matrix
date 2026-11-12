@@ -5,8 +5,9 @@ RUN mvn -q -B dependency:go-offline
 COPY src ./src
 RUN mvn -q -B -DskipTests package
 
-FROM eclipse-temurin:17-jre
-RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin fleet
+FROM eclipse-temurin:17-jre-noble
+RUN apt-get update && apt-get -y --no-install-recommends upgrade && rm -rf /var/lib/apt/lists/* \
+ && useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin fleet
 COPY --from=build /src/target/fleet-status-0.1.0.jar /app/fleet-status.jar
 USER 10001
 EXPOSE 8080

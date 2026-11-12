@@ -1,8 +1,8 @@
 package dev.fleetmatrix.status;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,9 +14,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class StateReader {
     private final Path file;
-    private final ObjectMapper mapper;
+    private final JsonMapper mapper;
 
-    public StateReader(@Value("${fleet.state-file}") String file, ObjectMapper mapper) {
+    public StateReader(@Value("${fleet.state-file}") String file, JsonMapper mapper) {
         this.file = Path.of(file);
         this.mapper = mapper;
     }
@@ -31,7 +31,7 @@ public class StateReader {
         }
         try {
             return mapper.readValue(file.toFile(), new TypeReference<List<Runner>>() { });
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IOException("state file is not a list of runners: " + file + " (" + e.getOriginalMessage() + ")", e);
         }
     }
