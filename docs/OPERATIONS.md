@@ -1,5 +1,9 @@
 # Operations
 
+## Before a pilot on a new host
+
+Run `mfm doctor` with the same `MFM_STATE` the CI jobs will use. A `FAIL` (old Python, a state file that cannot be read or written) must be fixed first. A `WARN` only blocks the feature it names: no Tart means no `--backend tart`, no reaper binary means expired leases are not quarantined, no Swift means no `--health`. Doctor only reads: it never creates the state file, boots a VM or runs the reaper. To undo anything it points you to, delete the state file, and nothing else changes.
+
 ## Stale lease
 
 1. Stop scheduling the runner immediately.
