@@ -7,7 +7,7 @@ import os
 import sys
 import time
 
-from . import __version__, pipeline, reap
+from . import __version__, doctor, pipeline, reap
 from .health import parse_health
 from .inventory import Inventory
 from .model import Runner, RunnerState
@@ -89,6 +89,8 @@ def build_parser() -> argparse.ArgumentParser:
     val = pipe_sub.add_parser("validate", help="structure, stage types, gates; exits 1 if any file is invalid")
     val.add_argument("files", nargs="+", metavar="FILE")
 
+    doc = sub.add_parser("doctor", help="check this host and the state file before a pilot; exits 1 on a failure")
+    doc.add_argument("--json", action="store_true")
     sub.add_parser("metrics", help="print fleet metrics in Prometheus text format")
 
     reap = sub.add_parser("reap", help="run the Rust lease reaper over the saved fleet state")
@@ -134,6 +136,9 @@ def run(args: argparse.Namespace) -> int:
             inventory = Inventory.load(state)
         _dump(inventory)
         return 0
+
+    if args.command == "doctor":
+        return doctor.main(state, args.json)
 
     if args.command == "pipeline":
         return pipeline.main(args.files)
