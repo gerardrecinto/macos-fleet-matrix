@@ -33,6 +33,8 @@ leased m1-01 to demo-123
 draining m1-01 after success
 ```
 
+Before pointing CI at a host, run `mfm doctor`. It checks Python, the state file, Apple Silicon, Tart, the reaper binary and Swift, prints the fix for each problem, and exits 1 only for a failure (a missing optional tool is a warning). `--json` gives the same rows for scripts.
+
 A released runner goes to `draining` and cannot be leased again. Trying gives `mfm: runner m1-01 is not ready` and exit code 2. The quick start uses a separate temporary state file and leaves your existing fleet untouched. Re-run the `export MFM_STATE=...` line for a fresh demo. Without this override, fleet state is saved to `~/.local/state/mfm/state.json`. Run `mfm metrics` to see runners by state.
 
 ## What works today, and what is design only
