@@ -78,7 +78,13 @@ class Inventory:
 
     @classmethod
     def from_json(cls, raw: str) -> Inventory:
-        return cls([Runner.from_dict(doc) for doc in json.loads(raw)])
+        runners = [Runner.from_dict(doc) for doc in json.loads(raw)]
+        seen: set[str] = set()
+        for runner in runners:
+            if runner.runner_id in seen:
+                raise ValueError(f"runner {runner.runner_id} appears more than once")
+            seen.add(runner.runner_id)
+        return cls(runners)
 
     @classmethod
     def load(cls, path: str) -> Inventory:

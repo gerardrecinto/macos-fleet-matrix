@@ -107,3 +107,24 @@ def test_unreadable_state_file_names_the_file_and_the_fix(monkeypatch, capsys, t
     assert str(state) in err
     assert "Move it aside or delete it" in err
     assert "Traceback" not in err
+
+
+@pytest.mark.parametrize(
+    "doc",
+    [
+        [{"runner_id": "a", "image": "i"}, {"runner_id": "a", "image": "i", "state": "leased"}],
+        [{"runner_id": "a", "image": "i", "state": "leased", "job_id": "j", "lease_expires_at": "soon"}],
+        [{"runner_id": "a", "image": "i", "lease_expires_at": True}],
+        [{"runner_id": "", "image": "i"}],
+        [{"runner_id": "a", "image": "i", "job_id": 7}],
+    ],
+)
+def test_malformed_state_is_rejected_not_repaired(tmp_path, monkeypatch, capsys, doc):
+    state = tmp_path / "state.json"
+    raw = json.dumps(doc)
+    state.write_text(raw)
+    code, _, err = run_cli(monkeypatch, capsys, state, "metrics")
+    assert code == 2 and "not valid fleet state" in err and "Traceback" not in err
+    code, _, err = run_cli(monkeypatch, capsys, state, "lease", "acquire", "--job", "j1")
+    assert code == 2 and "not valid fleet state" in err
+    assert state.read_text() == raw
