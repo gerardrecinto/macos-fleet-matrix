@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from math import isfinite
 from time import time
 
 
@@ -56,6 +57,17 @@ class Runner:
 
     @classmethod
     def from_dict(cls, doc: dict) -> Runner:
+        if not isinstance(doc, dict):
+            raise ValueError("runner must be a JSON object")
+        for name in ("runner_id", "image"):
+            if not isinstance(doc.get(name), str) or not doc[name]:
+                raise ValueError(f"{name} must be a non-empty string")
+        for name in ("job_id", "vm_name", "vm_ip"):
+            if doc.get(name) is not None and not isinstance(doc[name], str):
+                raise ValueError(f"{name} must be a string or null")
+        expiry = doc.get("lease_expires_at")
+        if expiry is not None and (type(expiry) not in (int, float) or not isfinite(expiry)):
+            raise ValueError("lease_expires_at must be a finite number or null")
         return cls(
             runner_id=doc["runner_id"],
             image=doc["image"],
