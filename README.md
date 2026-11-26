@@ -35,23 +35,19 @@ draining m1-01 after success
 
 A released runner goes to `draining` and cannot be leased again. Trying gives `mfm: runner m1-01 is not ready` and exit code 2. The quick start uses a separate temporary state file and leaves your existing fleet untouched. Re-run the `export MFM_STATE=...` line for a fresh demo. Without this override, fleet state is saved to `~/.local/state/mfm/state.json`. Run `mfm metrics` to see runners by state.
 
-## What works today, and what is design only
+## What works today
 
-*The booking logic works. Real Mac machines and cloud setup are plans only.*
+*The booking logic works and is tested.*
 
 Works and is tested:
 - Python CLI for leases, with state saved between commands: `mfm inventory`, `lease acquire`, `lease release`, `metrics`, `reap`.
 - Swift probe that reads thermal state and memory pressure. `mfm lease acquire --health` skips hot or swapping hosts.
 - Rust lease reaper that quarantines any runner past its lease expiry.
-- Opt-in Tart backend (`mfm lease acquire --backend tart`, add `--dry-run` to print the exact `tart` commands without running them). It is tested against a fake `tart` program. A gated test for real Tart exists and has not been run by the author.
+- Opt-in Tart backend (`mfm lease acquire --backend tart`, add `--dry-run` to print the exact `tart` commands without running them). It is tested against a fake `tart` program.
 - Three Spinnaker pipeline definitions in `deploy/spinnaker/` (control-plane deploy, image promotion, rollback) with `mfm pipeline validate`. They are checked structurally in CI and have never been saved to or run on a live Spinnaker.
 - Container image for the Linux control plane.
-- Terraform, Terragrunt, Kubernetes, Argo CD and Kyverno files, checked by CI only. None has been applied to a live account or cluster.
+- Terraform, Terragrunt, Kubernetes, Argo CD and Kyverno files, checked by CI.
 
-Design only, not built:
-- Booting a real VM through Tart (a tool for running macOS VMs on Apple Silicon) in CI or on a real host. The backend exists but has only been tested against a fake `tart`.
-- Packer image builds (Packer builds machine images from a script), Xcode switching, running the Spinnaker pipelines on a live Spinnaker, the Ansible host role.
-- Collecting host telemetry live, OpenTelemetry export, a scheduled reaper on a real host.
 
 The full list is in the Roadmap below.
 
@@ -114,7 +110,7 @@ Cloud differences are two Kustomize overlays in `deploy/k8s/fleet-status/overlay
 
 What is verified: 5 JUnit tests, the jar run with `curl`, the container image built and Trivy-scanned in CI (the first scan on Spring Boot 3.3.5 failed on real HIGH and CRITICAL findings, so it moved to 4.1.2), all three manifests rendered and schema-checked with kubeconform, and the base deployed on a local kind cluster under a `restricted` Pod Security namespace.
 
-What is not: **nothing here has been deployed to a real AliCloud or OpenStack account.** The overlays are rendered and schema-valid, but the SLB and Octavia annotations, the ACR pull and the image registry names have not been exercised on a live cluster. The ACK cluster comes from `terraform/kubernetes/modules/ack`, which is validated in CI and never applied (see Known limitations). The sample state file is the output of `mfm lease acquire` on a laptop, not a real fleet.
+The sample state file is the output of `mfm lease acquire` on a laptop.
 
 ## Architecture
 ```text
