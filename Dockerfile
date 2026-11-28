@@ -33,9 +33,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 
-# Pick up the Debian security fix for apt (CVE-2026-109518) until the base image ships it.
+# Pick up Debian security fixes (apt CVE-2026-109518, linux-pam CVE-2025-6020, zstd CVE-2026-124851) until the base image ships them.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends --only-upgrade apt libapt-pkg6.0 \
+    && apt-get install -y --no-install-recommends --only-upgrade apt libapt-pkg6.0 libpam-modules libpam-modules-bin libpam-runtime libpam0g libzstd1 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --system --gid 10001 mfm \
